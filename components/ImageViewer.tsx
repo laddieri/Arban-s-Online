@@ -171,7 +171,7 @@ export default function ImageViewer({
       </div>
 
       {/* Navigation and Zoom Controls */}
-      <div className="bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4">
+      <div className="bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 flex-shrink-0">
         <div className="flex flex-col gap-3 max-w-4xl mx-auto">
           {/* Zoom Controls */}
           <div className="flex items-center justify-center gap-3">

@@ -14,9 +14,9 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen h-[100dvh] overflow-hidden">
       {/* Header */}
-      <header className="bg-blue-700 text-white p-4 shadow-lg relative z-50">
+      <header className="bg-blue-700 text-white p-4 shadow-lg relative z-50 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
