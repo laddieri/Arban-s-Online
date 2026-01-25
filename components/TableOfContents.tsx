@@ -16,11 +16,11 @@ interface TableOfContentsProps {
 const sections: Section[] = [
   {
     title: "Title Page & Introduction",
-    page: 1,
+    page: 0,
   },
   {
     title: "Part 1: First Studies",
-    page: 5,
+    page: 18,
     subsections: [
       { title: "The Study of Syncopation", page: 10 },
       { title: "The Turn or Gruppetto", page: 15 },
@@ -29,9 +29,9 @@ const sections: Section[] = [
   },
   {
     title: "Part 2: The Art of Phrasing",
-    page: 30,
+    page: 198,
     subsections: [
-      { title: "150 Classic and Popular Melodies", page: 35 },
+      { title: "150 Classic and Popular Melodies", page: 198 },
       { title: "Celebrated Fantaisies and Airs Variés", page: 50 },
     ],
   },
@@ -45,11 +45,11 @@ const sections: Section[] = [
   },
   {
     title: "Part 4: Tonguing Exercises",
-    page: 110,
+    page: 160,
     subsections: [
       { title: "Single Tonguing", page: 115 },
-      { title: "Double Tonguing", page: 125 },
-      { title: "Triple Tonguing", page: 135 },
+      { title: "Double Tonguing", page: 182 },
+      { title: "Triple Tonguing", page: 162 },
     ],
   },
   {
