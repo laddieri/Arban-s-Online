@@ -156,7 +156,7 @@ export default function ImageViewer({
               <img
                 src={currentImageUrl}
                 alt={`Page ${currentPage} of ${totalPages}`}
-                className={`max-w-full h-auto shadow-lg transition-opacity duration-300 ${
+                className={`h-auto shadow-lg transition-opacity duration-300 ${
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
                 onLoad={() => setIsLoading(false)}
@@ -164,7 +164,7 @@ export default function ImageViewer({
                   setImageError(true);
                   setIsLoading(false);
                 }}
-                style={{ maxHeight: zoomLevel > 1 ? 'none' : 'calc(100vh - 200px)' }}
+                style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%' }}
               />
             </div>
           )}
