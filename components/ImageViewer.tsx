@@ -112,6 +112,10 @@ export default function ImageViewer({
         ref={containerRef}
         className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
         id="image-container"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          touchAction: zoomLevel > 1 ? 'pan-x pan-y' : 'auto'
+        }}
       >
         <div className="flex justify-center p-4" style={{ minHeight: zoomLevel > 1 ? 'auto' : '100%', alignItems: zoomLevel > 1 ? 'flex-start' : 'center' }}>
           {isLoading && !imageError && (
