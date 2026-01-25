@@ -95,8 +95,8 @@ const sections: Section[] = [
 ];
 
 export default function TableOfContents({ onPageSelect, currentPage }: TableOfContentsProps) {
-  // Track which sections are expanded (by index)
-  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+  // Track which sections are expanded (by index) - all collapsed by default
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
 
   const toggleSection = (index: number) => {
     setExpandedSections(prev => {
