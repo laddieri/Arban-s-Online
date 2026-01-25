@@ -1,18 +1,16 @@
-# Hosting Guide for Arban's Method PDF
+# Hosting Guide for Arban's Method Images
 
-## Recommended Approach: Cloudflare R2 + Images
+## Recommended Approach: Cloudflare R2
 
-### Why This Approach?
-- **Fast loading**: Images load faster than PDF pages
-- **Cost effective**: Cloudflare R2 has no egress fees
-- **Better mobile experience**: Optimized images work better on phones
-- **Progressive loading**: Can lazy-load pages as user scrolls
+### Why Cloudflare R2?
+- **Fast loading**: Images load quickly via global CDN
+- **Cost effective**: No egress fees (bandwidth is free!)
+- **Better mobile experience**: Optimized images work great on phones
+- **Progressive loading**: Pages load on demand
 
 ## Step-by-Step Setup
 
-### Option 1: Convert to Images + Cloudflare R2 (Recommended)
-
-#### 1. Convert PDF to Images
+### 1. Convert PDF to Images (if not done)
 
 ```bash
 # Install ImageMagick if you don't have it
@@ -30,7 +28,7 @@ convert -density 300 arbans-method.pdf -quality 90 pdf-pages/page-%03d.webp
 convert -density 300 arbans-method.pdf -quality 90 pdf-pages/page-%03d.jpg
 ```
 
-#### 2. Set Up Cloudflare R2
+### 2. Set Up Cloudflare R2
 
 1. Sign up at https://www.cloudflare.com/
 2. Go to R2 Object Storage
@@ -50,26 +48,16 @@ convert -density 300 arbans-method.pdf -quality 90 pdf-pages/page-%03d.jpg
 ]
 ```
 
-#### 3. Update Your App to Use Images
+### 3. Update Your Environment
 
-You'll need to modify the app to use images instead of PDF.js. I can help you with this code change!
-
-### Option 2: Keep PDF + Cloudflare R2
-
-#### Setup Steps:
-1. Create R2 bucket as above
-2. Upload `arbans-method.pdf` to bucket
-3. Get public URL (e.g., `https://pub-xxx.r2.dev/arbans-method.pdf`)
-4. Update `app/page.tsx`:
-```typescript
-<PDFViewer
-  pdfUrl="https://your-bucket.r2.dev/arbans-method.pdf"
-  currentPage={currentPage}
-  onPageChange={handlePageChange}
-/>
+Set your `.env.local` file:
+```
+NEXT_PUBLIC_IMAGE_BASE_URL=https://your-bucket.r2.dev
 ```
 
-### Option 3: Use Vercel Blob (Easiest for Vercel deployments)
+## Alternative Hosting Options
+
+### Vercel Blob (Easiest for Vercel deployments)
 
 ```bash
 # Install Vercel CLI
@@ -79,21 +67,17 @@ npm i -g vercel
 vercel login
 vercel link
 
-# Upload PDF
-vercel blob put arbans-method.pdf --token YOUR_TOKEN
+# Upload images
+vercel blob put page-001.jpg --token YOUR_TOKEN
 ```
 
-Then use the returned URL in your app.
-
-### Option 4: Internet Archive (Best for Public Domain)
+### Internet Archive (Best for Public Domain)
 
 1. Go to https://archive.org/
 2. Create account
-3. Upload your PDF
+3. Upload your images
 4. Get the public URL
 5. Use in your app (CORS-friendly)
-
-Example URL format: `https://archive.org/download/arbans-method/arbans-method.pdf`
 
 ## Cost Comparison
 
@@ -103,34 +87,24 @@ Example URL format: `https://archive.org/download/arbans-method/arbans-method.pd
 | AWS S3 | $0.023/mo | ~$9/mo | 5 GB + 15 GB/mo (12 months) |
 | Vercel Blob | Included | Varies | 500 MB |
 | Internet Archive | Free | Free | Unlimited |
-| GitHub LFS | Free | Free | 1 GB storage + 1 GB/mo bandwidth |
 
-## Performance Comparison
+## Image Format Recommendations
 
-**Images (WebP/JPG) vs PDF:**
-- Images: ~200-500 KB per page
-- PDF page render: Must load entire PDF first, then render
-- Images load: 2-3x faster on mobile
-- Images: Can use modern formats (WebP, AVIF) for 30-50% smaller files
+| Format | Best For | Size vs JPG |
+|--------|----------|-------------|
+| WebP | Modern browsers | 25-35% smaller |
+| AVIF | Cutting edge | 40-50% smaller |
+| JPG | Maximum compatibility | Baseline |
+
+Typical size: 200-500 KB per page at good quality.
 
 ## Recommendation by Use Case
 
 ### Personal Use / Learning
-→ **GitHub LFS** or **Internet Archive** (free)
+→ **Internet Archive** (free, permanent)
 
 ### Production App / High Traffic
-→ **Cloudflare R2 + Images** (best performance, cost-effective)
+→ **Cloudflare R2** (best performance, cost-effective)
 
 ### Quick Prototype
 → **Vercel Blob** (easiest setup)
-
-### Archival / Public Good
-→ **Internet Archive** (permanent, free, supports public domain)
-
-## Next Steps
-
-Let me know which option you'd like to pursue and I can:
-1. Help you convert the PDF to images
-2. Update the code to work with images instead of PDF
-3. Set up the hosting configuration
-4. Optimize the loading and performance

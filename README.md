@@ -124,7 +124,6 @@ Arban-s-Online/
 │   └── globals.css             # Global styles
 ├── components/
 │   ├── ImageViewer.tsx         # Image viewer with navigation
-│   ├── PDFViewer.tsx           # Legacy PDF viewer (not used)
 │   └── TableOfContents.tsx     # Navigation sidebar
 ├── config/
 │   └── app.config.ts           # Application configuration
