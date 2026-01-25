@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import PDFViewer from '@/components/PDFViewer';
+import ImageViewer from '@/components/ImageViewer';
 import TableOfContents from '@/components/TableOfContents';
+import { appConfig } from '@/config/app.config';
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,12 +67,14 @@ export default function Home() {
           />
         )}
 
-        {/* PDF Viewer */}
+        {/* Image Viewer */}
         <main className="flex-1 overflow-hidden">
-          <PDFViewer
-            pdfUrl="/arbans-method.pdf"
+          <ImageViewer
+            baseUrl={appConfig.imageBaseUrl}
+            totalPages={appConfig.totalPages}
             currentPage={currentPage}
             onPageChange={handlePageChange}
+            imageFormat={appConfig.imageFormat}
           />
         </main>
 
