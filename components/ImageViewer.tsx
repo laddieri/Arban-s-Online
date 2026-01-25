@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 
 interface ImageViewerProps {
@@ -11,6 +11,10 @@ interface ImageViewerProps {
   imageFormat?: string;
 }
 
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3;
+const ZOOM_STEP = 0.1;
+
 export default function ImageViewer({
   baseUrl,
   totalPages,
@@ -20,12 +24,45 @@ export default function ImageViewer({
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset loading state when page changes
+  // Reset loading state and zoom when page changes
   useEffect(() => {
     setIsLoading(true);
     setImageError(false);
+    setZoomLevel(1); // Reset zoom when changing pages
   }, [currentPage]);
+
+  // Zoom functions
+  const zoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev - ZOOM_STEP, MIN_ZOOM));
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoomLevel(1);
+  }, []);
+
+  // Handle mouse wheel zoom (with Ctrl/Cmd key)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+        setZoomLevel(prev => Math.min(Math.max(prev + delta, MIN_ZOOM), MAX_ZOOM));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
 
   const goToPreviousPage = () => {
     if (currentPage > 1) {
@@ -72,7 +109,11 @@ export default function ImageViewer({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800" id="image-container">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
+        id="image-container"
+      >
         <div className="flex justify-center items-center p-4 min-h-full">
           {isLoading && !imageError && (
             <div className="absolute flex items-center justify-center">
@@ -99,7 +140,14 @@ export default function ImageViewer({
               </button>
             </div>
           ) : (
-            <div className="relative max-w-full">
+            <div
+              className="relative"
+              style={{
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: 'center center',
+                transition: 'transform 0.1s ease-out'
+              }}
+            >
               <img
                 src={currentImageUrl}
                 alt={`Page ${currentPage} of ${totalPages}`}
@@ -118,39 +166,87 @@ export default function ImageViewer({
         </div>
       </div>
 
-      {/* Navigation Controls */}
+      {/* Navigation and Zoom Controls */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <button
-            onClick={goToPreviousPage}
-            disabled={currentPage <= 1}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
-          >
-            Previous
-          </button>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm">
-              Page{' '}
-              <input
-                type="number"
-                min={1}
-                max={totalPages}
-                value={currentPage}
-                onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
-                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
-              />
-              {' '}of {totalPages}
+        <div className="flex flex-col gap-3 max-w-4xl mx-auto">
+          {/* Zoom Controls */}
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={zoomOut}
+              disabled={zoomLevel <= MIN_ZOOM}
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
+              title="Zoom out"
+            >
+              −
+            </button>
+            <input
+              type="range"
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={ZOOM_STEP}
+              value={zoomLevel}
+              onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+              className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              title="Zoom level"
+            />
+            <button
+              onClick={zoomIn}
+              disabled={zoomLevel >= MAX_ZOOM}
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
+              title="Zoom in"
+            >
+              +
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400 w-14 text-center">
+              {Math.round(zoomLevel * 100)}%
             </span>
+            <button
+              onClick={resetZoom}
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+              title="Reset zoom"
+            >
+              Reset
+            </button>
           </div>
 
-          <button
-            onClick={goToNextPage}
-            disabled={currentPage >= totalPages}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
-          >
-            Next
-          </button>
+          {/* Page Navigation */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage <= 1}
+              className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
+            >
+              Previous
+            </button>
+
+            <div className="flex items-center gap-4">
+              <span className="text-sm">
+                Page{' '}
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={currentPage}
+                  onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
+                  className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
+                />
+                {' '}of {totalPages}
+              </span>
+            </div>
+
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage >= totalPages}
+              className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
+            >
+              Next
+            </button>
+          </div>
+
+          {/* Zoom hint */}
+          <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
+            Tip: Hold Ctrl/Cmd + scroll to zoom
+          </p>
         </div>
       </div>
     </div>
