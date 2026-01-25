@@ -65,7 +65,7 @@ export default function ImageViewer({
   }, []);
 
   const goToPreviousPage = () => {
-    if (currentPage > 1) {
+    if (currentPage > 0) {
       onPageChange(currentPage - 1);
     }
   };
@@ -77,7 +77,7 @@ export default function ImageViewer({
   };
 
   const goToPage = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
+    if (page >= 0 && page <= totalPages) {
       onPageChange(page);
     }
   };
@@ -101,7 +101,7 @@ export default function ImageViewer({
       const nextImage = new window.Image();
       nextImage.src = getImageUrl(currentPage + 1);
     }
-    if (currentPage > 1) {
+    if (currentPage > 0) {
       const prevImage = new window.Image();
       prevImage.src = getImageUrl(currentPage - 1);
     }
@@ -213,7 +213,7 @@ export default function ImageViewer({
           <div className="flex items-center justify-between">
             <button
               onClick={goToPreviousPage}
-              disabled={currentPage <= 1}
+              disabled={currentPage <= 0}
               className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
             >
               Previous
@@ -224,10 +224,10 @@ export default function ImageViewer({
                 Page{' '}
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   max={totalPages}
                   value={currentPage}
-                  onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
+                  onChange={(e) => goToPage(parseInt(e.target.value) || 0)}
                   className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
                 />
                 {' '}of {totalPages}

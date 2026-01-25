@@ -6,7 +6,7 @@ import TableOfContents from '@/components/TableOfContents';
 import { appConfig } from '@/config/app.config';
 
 export default function Home() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0); // Start with cover page
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handlePageChange = (page: number) => {
