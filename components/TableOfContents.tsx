@@ -164,12 +164,6 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
             );
           })}
         </div>
-        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
-          <p className="text-xs text-yellow-800 dark:text-yellow-200">
-            <strong>Note:</strong> Page numbers in the table of contents are placeholder values.
-            Update them in <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">components/TableOfContents.tsx</code> to match your PDF.
-          </p>
-        </div>
       </div>
     </div>
   );
