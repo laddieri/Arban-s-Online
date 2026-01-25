@@ -113,9 +113,9 @@ export default function ImageViewer({
         className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
         id="image-container"
       >
-        <div className="flex justify-center items-center p-4 min-h-full">
+        <div className="flex justify-center p-4" style={{ minHeight: zoomLevel > 1 ? 'auto' : '100%', alignItems: zoomLevel > 1 ? 'flex-start' : 'center' }}>
           {isLoading && !imageError && (
-            <div className="absolute flex items-center justify-center">
+            <div className="absolute flex items-center justify-center inset-0">
               <div className="text-lg text-gray-600 dark:text-gray-400">Loading page {currentPage}...</div>
             </div>
           )}
@@ -143,8 +143,9 @@ export default function ImageViewer({
               className="relative"
               style={{
                 transform: `scale(${zoomLevel})`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.1s ease-out'
+                transformOrigin: 'top center',
+                transition: 'transform 0.1s ease-out',
+                marginBottom: zoomLevel > 1 ? `${(zoomLevel - 1) * 100}%` : 0
               }}
             >
               <img
@@ -158,7 +159,7 @@ export default function ImageViewer({
                   setImageError(true);
                   setIsLoading(false);
                 }}
-                style={{ maxHeight: 'calc(100vh - 200px)' }}
+                style={{ maxHeight: zoomLevel > 1 ? 'none' : 'calc(100vh - 200px)' }}
               />
             </div>
           )}
