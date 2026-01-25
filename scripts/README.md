@@ -9,7 +9,42 @@ These scripts help you convert your Arban's Method PDF to web-optimized images.
 - **Smaller files**: WebP format is 30-50% smaller
 - **Progressive loading**: Only load pages as needed
 
-## Quick Start
+## 🪟 Windows Users - Quick Start
+
+If you're getting the ImageMagick error `PDFDelegateFailed "The system cannot find the file specified"`, use this method:
+
+### Easy Method (Recommended):
+
+1. **Download Poppler for Windows:**
+   - Go to: https://github.com/oschwartz10612/poppler-windows/releases
+   - Download the latest `Release-XX.XX.X-X.zip`
+   - Extract to `C:\poppler`
+
+2. **Install Python packages:**
+   ```cmd
+   pip install pdf2image Pillow
+   ```
+
+3. **Run the batch script:**
+   ```cmd
+   scripts\convert-pdf-windows.bat arbans-method.pdf
+   ```
+   Or just double-click `convert-pdf-windows.bat` and follow prompts.
+
+### Alternative - Fix ImageMagick:
+
+1. **Install Ghostscript:**
+   - Download from: https://www.ghostscript.com/releases/gsdnload.html
+   - Install `gs10.XX.X-win64.exe`
+
+2. **Add to PATH:**
+   ```cmd
+   setx /M PATH "%PATH%;C:\Program Files\gs\gs10.02.1\bin"
+   ```
+
+3. **Restart your terminal** and try ImageMagick again.
+
+## 🍎 macOS / 🐧 Linux Quick Start
 
 ### Method 1: Using pdftoppm (Recommended - Most Reliable)
 
