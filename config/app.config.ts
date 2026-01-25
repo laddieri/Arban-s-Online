@@ -11,7 +11,7 @@ export const appConfig = {
   totalPages: parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '350'),
 
   // Image format used (jpg, png, or webp)
-  imageFormat: process.env.NEXT_PUBLIC_IMAGE_FORMAT || 'jpg',
+  imageFormat: process.env.NEXT_PUBLIC_IMAGE_FORMAT || 'webp',
 
   // Book metadata
   bookTitle: "Arban's Complete Method for Trumpet/Cornet",
