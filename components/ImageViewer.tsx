@@ -117,7 +117,7 @@ export default function ImageViewer({
           touchAction: zoomLevel > 1 ? 'pan-x pan-y' : 'auto'
         }}
       >
-        <div className="p-4" style={{ minHeight: zoomLevel > 1 ? 'auto' : '100%', display: 'flex', justifyContent: zoomLevel > 1 ? 'flex-start' : 'center', alignItems: zoomLevel > 1 ? 'flex-start' : 'center' }}>
+        <div className="p-4 flex justify-center" style={{ minHeight: '100%', alignItems: 'flex-start' }}>
           {isLoading && !imageError && (
             <div className="absolute flex items-center justify-center inset-0">
               <div className="text-lg text-gray-600 dark:text-gray-400">Loading page {currentPage}...</div>
@@ -143,30 +143,22 @@ export default function ImageViewer({
               </button>
             </div>
           ) : (
-            <div
-              className="relative"
-              style={{
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'top left',
-                transition: 'transform 0.1s ease-out',
-                marginBottom: zoomLevel > 1 ? `${(zoomLevel - 1) * 100}%` : 0,
-                marginRight: zoomLevel > 1 ? `${(zoomLevel - 1) * 100}%` : 0
+            <img
+              src={currentImageUrl}
+              alt={`Page ${currentPage} of ${totalPages}`}
+              className={`h-auto shadow-lg transition-all duration-100 ${
+                isLoading ? 'opacity-0' : 'opacity-100'
+              }`}
+              onLoad={() => setIsLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setIsLoading(false);
               }}
-            >
-              <img
-                src={currentImageUrl}
-                alt={`Page ${currentPage} of ${totalPages}`}
-                className={`h-auto shadow-lg transition-opacity duration-300 ${
-                  isLoading ? 'opacity-0' : 'opacity-100'
-                }`}
-                onLoad={() => setIsLoading(false)}
-                onError={() => {
-                  setImageError(true);
-                  setIsLoading(false);
-                }}
-                style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%' }}
-              />
-            </div>
+              style={{
+                width: `${zoomLevel * 100}%`,
+                maxWidth: 'none'
+              }}
+            />
           )}
         </div>
       </div>
