@@ -24,7 +24,9 @@ export default function ImageViewer({
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
   // Reset loading state and zoom when page changes
   useEffect(() => {
@@ -44,6 +46,31 @@ export default function ImageViewer({
 
   const resetZoom = useCallback(() => {
     setZoomLevel(1);
+  }, []);
+
+  // Fullscreen toggle function
+  const toggleFullscreen = useCallback(async () => {
+    if (!viewerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await viewerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Error toggling fullscreen:', err);
+    }
+  }, []);
+
+  // Listen for fullscreen changes (e.g., user presses Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
@@ -107,7 +134,7 @@ export default function ImageViewer({
   }, [currentPage, totalPages]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div ref={viewerRef} className="flex flex-col h-full bg-white dark:bg-gray-900">
       <div
         ref={containerRef}
         className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
@@ -203,6 +230,21 @@ export default function ImageViewer({
               title="Reset zoom"
             >
               Reset
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
+              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              )}
             </button>
           </div>
 
