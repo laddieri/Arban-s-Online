@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import PrintDialog from './PrintDialog';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -8,6 +9,8 @@ interface ImageViewerProps {
   currentPage: number;
   onPageChange: (page: number) => void;
   imageFormat?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const MIN_ZOOM = 0.5;
@@ -19,14 +22,16 @@ export default function ImageViewer({
   totalPages,
   currentPage,
   onPageChange,
-  imageFormat = 'jpg'
+  imageFormat = 'jpg',
+  isFullscreen = false,
+  onToggleFullscreen
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   // Reset loading state and zoom when page changes
   useEffect(() => {
@@ -34,6 +39,14 @@ export default function ImageViewer({
     setImageError(false);
     setZoomLevel(1); // Reset zoom when changing pages
   }, [currentPage]);
+
+  // Check if image is already loaded (e.g., from cache) after mount/hydration
+  useEffect(() => {
+    const img = imageRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setIsLoading(false);
+    }
+  });
 
   // Zoom functions
   const zoomIn = useCallback(() => {
@@ -46,31 +59,6 @@ export default function ImageViewer({
 
   const resetZoom = useCallback(() => {
     setZoomLevel(1);
-  }, []);
-
-  // Fullscreen toggle function
-  const toggleFullscreen = useCallback(async () => {
-    if (!viewerRef.current) return;
-
-    try {
-      if (!document.fullscreenElement) {
-        await viewerRef.current.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch (err) {
-      console.error('Error toggling fullscreen:', err);
-    }
-  }, []);
-
-  // Listen for fullscreen changes (e.g., user presses Escape)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
@@ -134,7 +122,7 @@ export default function ImageViewer({
   }, [currentPage, totalPages]);
 
   return (
-    <div ref={viewerRef} className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
       <div
         ref={containerRef}
         className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
@@ -171,6 +159,7 @@ export default function ImageViewer({
             </div>
           ) : (
             <img
+              ref={imageRef}
               src={currentImageUrl}
               alt={`Page ${currentPage} of ${totalPages}`}
               className={`h-auto shadow-lg transition-all duration-100 ${
@@ -232,7 +221,7 @@ export default function ImageViewer({
               Reset
             </button>
             <button
-              onClick={toggleFullscreen}
+              onClick={onToggleFullscreen}
               className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
@@ -245,6 +234,15 @@ export default function ImageViewer({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                 </svg>
               )}
+            </button>
+            <button
+              onClick={() => setIsPrintDialogOpen(true)}
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
+              title="Print pages"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
             </button>
           </div>
 
@@ -288,6 +286,16 @@ export default function ImageViewer({
           </p>
         </div>
       </div>
+
+      {/* Print Dialog */}
+      <PrintDialog
+        isOpen={isPrintDialogOpen}
+        onClose={() => setIsPrintDialogOpen(false)}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        baseUrl={baseUrl}
+        imageFormat={imageFormat}
+      />
     </div>
   );
 }

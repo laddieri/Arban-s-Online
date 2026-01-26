@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ImageViewer from '@/components/ImageViewer';
 import TableOfContents from '@/components/TableOfContents';
 import { appConfig } from '@/config/app.config';
@@ -8,13 +8,40 @@ import { appConfig } from '@/config/app.config';
 export default function Home() {
   const [currentPage, setCurrentPage] = useState(0); // Start with cover page
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
+  // Fullscreen toggle function
+  const toggleFullscreen = useCallback(async () => {
+    if (!mainContainerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await mainContainerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Error toggling fullscreen:', err);
+    }
+  }, []);
+
+  // Listen for fullscreen changes (e.g., user presses Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   return (
-    <div className="flex flex-col h-screen h-[100dvh] overflow-hidden">
+    <div ref={mainContainerRef} className="flex flex-col h-screen h-[100dvh] overflow-hidden bg-white dark:bg-gray-900">
       {/* Header */}
       <header className="bg-blue-700 text-white p-4 shadow-lg relative z-50 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -75,6 +102,8 @@ export default function Home() {
             currentPage={currentPage}
             onPageChange={handlePageChange}
             imageFormat={appConfig.imageFormat}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
           />
         </main>
 
