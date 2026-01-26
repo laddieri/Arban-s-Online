@@ -8,6 +8,8 @@ interface ImageViewerProps {
   currentPage: number;
   onPageChange: (page: number) => void;
   imageFormat?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const MIN_ZOOM = 0.5;
@@ -19,14 +21,14 @@ export default function ImageViewer({
   totalPages,
   currentPage,
   onPageChange,
-  imageFormat = 'jpg'
+  imageFormat = 'jpg',
+  isFullscreen = false,
+  onToggleFullscreen
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<HTMLDivElement>(null);
 
   // Reset loading state and zoom when page changes
   useEffect(() => {
@@ -46,31 +48,6 @@ export default function ImageViewer({
 
   const resetZoom = useCallback(() => {
     setZoomLevel(1);
-  }, []);
-
-  // Fullscreen toggle function
-  const toggleFullscreen = useCallback(async () => {
-    if (!viewerRef.current) return;
-
-    try {
-      if (!document.fullscreenElement) {
-        await viewerRef.current.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch (err) {
-      console.error('Error toggling fullscreen:', err);
-    }
-  }, []);
-
-  // Listen for fullscreen changes (e.g., user presses Escape)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
@@ -134,7 +111,7 @@ export default function ImageViewer({
   }, [currentPage, totalPages]);
 
   return (
-    <div ref={viewerRef} className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
       <div
         ref={containerRef}
         className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
@@ -232,7 +209,7 @@ export default function ImageViewer({
               Reset
             </button>
             <button
-              onClick={toggleFullscreen}
+              onClick={onToggleFullscreen}
               className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
