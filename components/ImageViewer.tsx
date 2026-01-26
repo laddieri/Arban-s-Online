@@ -31,6 +31,7 @@ export default function ImageViewer({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   // Reset loading state and zoom when page changes
   useEffect(() => {
@@ -38,6 +39,14 @@ export default function ImageViewer({
     setImageError(false);
     setZoomLevel(1); // Reset zoom when changing pages
   }, [currentPage]);
+
+  // Check if image is already loaded (e.g., from cache) after mount/hydration
+  useEffect(() => {
+    const img = imageRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setIsLoading(false);
+    }
+  });
 
   // Zoom functions
   const zoomIn = useCallback(() => {
@@ -150,6 +159,7 @@ export default function ImageViewer({
             </div>
           ) : (
             <img
+              ref={imageRef}
               src={currentImageUrl}
               alt={`Page ${currentPage} of ${totalPages}`}
               className={`h-auto shadow-lg transition-all duration-100 ${
