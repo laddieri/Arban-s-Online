@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import PrintDialog from './PrintDialog';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -28,6 +29,7 @@ export default function ImageViewer({
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset loading state and zoom when page changes
@@ -223,6 +225,15 @@ export default function ImageViewer({
                 </svg>
               )}
             </button>
+            <button
+              onClick={() => setIsPrintDialogOpen(true)}
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
+              title="Print pages"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+            </button>
           </div>
 
           {/* Page Navigation */}
@@ -265,6 +276,16 @@ export default function ImageViewer({
           </p>
         </div>
       </div>
+
+      {/* Print Dialog */}
+      <PrintDialog
+        isOpen={isPrintDialogOpen}
+        onClose={() => setIsPrintDialogOpen(false)}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        baseUrl={baseUrl}
+        imageFormat={imageFormat}
+      />
     </div>
   );
 }
