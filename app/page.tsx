@@ -40,6 +40,14 @@ export default function Home() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Go to a random exercise page (skip first 10 pages which are intro/contents)
+  const goToRandomExercise = () => {
+    const minPage = 10; // Skip cover, intro, table of contents
+    const maxPage = appConfig.totalPages;
+    const randomPage = Math.floor(Math.random() * (maxPage - minPage + 1)) + minPage;
+    setCurrentPage(randomPage);
+  };
+
   return (
     <div ref={mainContainerRef} className="flex flex-col h-screen h-[100dvh] overflow-hidden bg-white dark:bg-gray-900">
       {/* Header */}
@@ -65,10 +73,33 @@ export default function Home() {
                 />
               </svg>
             </button>
-            <h1 className="text-xl md:text-2xl font-bold">
+            <h1 className="text-xl md:text-2xl font-bold hidden sm:block">
               Arban's Complete Method for Trumpet/Cornet
             </h1>
+            <h1 className="text-xl font-bold sm:hidden">
+              Arban's Method
+            </h1>
           </div>
+          <button
+            onClick={goToRandomExercise}
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition flex items-center gap-2 whitespace-nowrap"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span className="hidden md:inline">Give me something to practice</span>
+            <span className="md:hidden">Random</span>
+          </button>
         </div>
       </header>
 
