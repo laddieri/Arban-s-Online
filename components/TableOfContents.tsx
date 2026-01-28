@@ -36,7 +36,7 @@ const sections: Section[] = [
     ],
   },
   {
-    title: "Part 1: First Studies",
+    title: "First Studies",
     page: 11,
     subsections: [
       { title: "The Study of Syncopation", page: 23 },
@@ -45,17 +45,65 @@ const sections: Section[] = [
       { title: "Studies of the Slur", page: 39 },
       { title: "Lip Trills", page: 44 },
     ],
+  },
+  {
     title: "Scale Studies",
     page: 57,
     subsections: [
       { title: "Major Scales", page: 59 },
-      { title: "The Trill", page: 111 },
-      { title: "The Turn or Gruppetto", page: 84 },
-      { title: "The Trill", page: 111 },
+      { title: "Minor Scales", page: 75 },
+      { title: "Chromatic Scales", page: 76 },
+      { title: "Chromatic Triples", page: 80 },
     ],
   },
   {
-    title: "Part 2: The Art of Phrasing",
+    title: "Grace Notes",
+    page: 87,
+    subsections: [
+      { title: "Preparatory Exercises on the Gruppetto", page: 91 },
+      { title: "The Gruppetto", page: 99 },
+      { title: "The Double Appoggiatura", page: 104 },
+      { title: "The Simple Appoggiatura", page: 106 },
+      { title: "The Portamento", page: 110 },
+      { title: "The Trill or Shake", page: 111 },
+      { title: "The Mordant", page: 120 },
+    ],
+  },
+  {
+    title: "Intervals",
+    page: 123,
+    subsections: [
+      { title: "Studies on the Intervals", page: 125 },
+      { title: "Octaves and Tenths", page: 131 },
+    ],
+  },
+  {
+    title: "Rhythm and Chord Exercises",
+    page: 123,
+    subsections: [
+      { title: "Exercises on Triplets", page: 132 },
+      { title: "Octaves and Tenths", page: 131 },
+      { title: "Exercises on Sixteenth Notes", page: 137 },
+      { title: "Major and Minor Chords", page: 142 },
+      { title: "The Chord of the Dominant Seventh", page: 147 },
+      { title: "The Chord of the Diminished Seventh", page: 149 },
+    ],
+  },
+
+
+  { title: "Cadenzas", page: 152 },
+  {
+    title: "Multiple Tonguing",
+    page: 153,
+    subsections: [
+      { title: "Triple Tonguing", page: 155 },
+      { title: "Double Tonguing", page: 175 },
+      { title: "The Slur and Double Tonguing", page: 183 },
+      { title: "Tonguing as Applied to the Trumpet", page: 188},
+    ],
+  },
+  {
+    title: "The Art of Phrasing",
     page: 191,
     subsections: [
       { title: "150 Classic and Popular Melodies", page: 191 },
@@ -63,7 +111,7 @@ const sections: Section[] = [
     ],
   },
   {
-    title: "Part 3: Characteristic Studies",
+    title: "Characteristic Studies",
     page: 285,
     subsections: [
       { title: "#1", page: 285 },
@@ -97,24 +145,6 @@ const sections: Section[] = [
       { title: "Variations on a favorite theme by C.M. von Weber", page: 335 },
       { title: "Fantasie and Variations on the Carnival of Venice", page: 339 },
       { title: "Variations on a theme from Norma by V. Bellini", page: 344 },
-    ],
-  },
-  {
-    title: "Part 4: Tonguing Exercises",
-    page: 153,
-    subsections: [
-      { title: "Single Tonguing", page: 108 },
-      { title: "Double Tonguing", page: 175 },
-      { title: "Triple Tonguing", page: 155 },
-    ],
-  },
-  {
-    title: "Part 5: Scales and Arpeggios",
-    page: 58,
-    subsections: [
-      { title: "Major Scales", page: 59 },
-      { title: "Minor Scales", page: 75 },
-      { title: "Chromatic Scales", page: 76 },
     ],
   },
 ];
