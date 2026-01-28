@@ -13,6 +13,10 @@ export default function Home() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    // Close sidebar on mobile when a page is selected
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   };
 
   // Fullscreen toggle function
