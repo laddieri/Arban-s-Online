@@ -119,38 +119,61 @@ export default function PrintDialog({
           <head>
             <title>Arban's Method - Print</title>
             <style>
+              @page {
+                size: letter;
+                margin: 0;
+              }
               * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
+              }
+              html, body {
+                width: 8.5in;
+                height: 11in;
               }
               body {
                 background: white;
               }
               .page {
                 page-break-after: always;
+                page-break-inside: avoid;
                 display: flex;
                 justify-content: center;
-                align-items: flex-start;
-                min-height: 100vh;
+                align-items: center;
+                width: 8.5in;
+                height: 11in;
                 padding: 0;
+                overflow: hidden;
               }
               .page:last-child {
                 page-break-after: auto;
               }
               .page img {
-                max-width: 100%;
-                max-height: 100vh;
+                max-width: 8.5in;
+                max-height: 11in;
                 width: auto;
                 height: auto;
+                object-fit: contain;
               }
               @media print {
+                html, body {
+                  width: 8.5in;
+                  height: 11in;
+                }
                 .page {
                   page-break-after: always;
-                  height: 100vh;
+                  page-break-inside: avoid;
+                  width: 8.5in;
+                  height: 11in;
                 }
                 .page:last-child {
                   page-break-after: auto;
+                }
+                .page img {
+                  max-width: 8.5in;
+                  max-height: 11in;
+                  object-fit: contain;
                 }
               }
             </style>
