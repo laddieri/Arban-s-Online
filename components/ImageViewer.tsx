@@ -131,11 +131,14 @@ export default function ImageViewer({
     <div className="relative h-full bg-white dark:bg-gray-900">
       <div
         ref={containerRef}
-        className="h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40"
+        className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40 image-viewer-scroll ${
+          zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+        }`}
         id="image-container"
         style={{
           WebkitOverflowScrolling: 'touch',
-          touchAction: zoomLevel > 1 ? 'pan-x pan-y' : 'auto'
+          touchAction: zoomLevel > 1 ? 'pan-x pan-y' : 'auto',
+          overscrollBehavior: 'contain'
         }}
       >
         <div className="p-4 flex justify-center" style={{ minHeight: '100%', alignItems: 'flex-start' }}>
