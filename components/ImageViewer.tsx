@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PrintDialog from './PrintDialog';
+import { formatDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -80,8 +81,10 @@ export default function ImageViewer({
     return () => container.removeEventListener('wheel', handleWheel);
   }, []);
 
+  const minPage = getMinPage(pageOffset);
+
   const goToPreviousPage = () => {
-    if (currentPage > 0) {
+    if (currentPage > minPage) {
       onPageChange(currentPage - 1);
     }
   };
@@ -93,7 +96,7 @@ export default function ImageViewer({
   };
 
   const goToPage = (page: number) => {
-    if (page >= 0 && page <= totalPages) {
+    if (page >= minPage && page <= totalPages) {
       onPageChange(page);
     }
   };
@@ -118,11 +121,11 @@ export default function ImageViewer({
       const nextImage = new window.Image();
       nextImage.src = getImageUrl(currentPage + 1);
     }
-    if (currentPage > 0) {
+    if (currentPage > minPage) {
       const prevImage = new window.Image();
       prevImage.src = getImageUrl(currentPage - 1);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, minPage]);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
@@ -138,14 +141,14 @@ export default function ImageViewer({
         <div className="p-4 flex justify-center" style={{ minHeight: '100%', alignItems: 'flex-start' }}>
           {isLoading && !imageError && (
             <div className="absolute flex items-center justify-center inset-0">
-              <div className="text-lg text-gray-600 dark:text-gray-400">Loading page {currentPage}...</div>
+              <div className="text-lg text-gray-600 dark:text-gray-400">Loading page {formatDisplayPageNumber(currentPage, pageOffset)}...</div>
             </div>
           )}
 
           {imageError ? (
             <div className="flex flex-col items-center justify-center h-96 text-center p-8">
               <div className="text-lg text-red-600 dark:text-red-400 mb-4">
-                Error loading page {currentPage}
+                Error loading page {formatDisplayPageNumber(currentPage, pageOffset)}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Expected URL: {currentImageUrl}
@@ -164,7 +167,7 @@ export default function ImageViewer({
             <img
               ref={imageRef}
               src={currentImageUrl}
-              alt={`Page ${currentPage} of ${totalPages}`}
+              alt={`Page ${formatDisplayPageNumber(currentPage, pageOffset)} of ${totalPages}`}
               className={`h-auto shadow-lg transition-all duration-100 ${
                 isLoading ? 'opacity-0' : 'opacity-100'
               }`}
@@ -253,7 +256,7 @@ export default function ImageViewer({
           <div className="flex items-center justify-between">
             <button
               onClick={goToPreviousPage}
-              disabled={currentPage <= 0}
+              disabled={currentPage <= minPage}
               className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
             >
               Previous
@@ -264,13 +267,13 @@ export default function ImageViewer({
                 Page{' '}
                 <input
                   type="number"
-                  min={0}
+                  min={minPage}
                   max={totalPages}
                   value={currentPage}
                   onChange={(e) => goToPage(parseInt(e.target.value) || 0)}
                   className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
                 />
-                {' '}of {totalPages}
+                {' '}({formatDisplayPageNumber(currentPage, pageOffset)}) of {totalPages}
               </span>
             </div>
 

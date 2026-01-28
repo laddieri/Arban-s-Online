@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { formatDisplayPageNumber } from '@/utils/pageFormat';
+import { appConfig } from '@/config/app.config';
 
 interface Section {
   title: string;
@@ -14,8 +16,22 @@ interface TableOfContentsProps {
 }
 
 // Table of Contents based on typical Arban's Method structure
-// Page numbers adjusted to match the actual image page numbers (offset by -7 for preface)
+// Negative page numbers are preface pages (displayed as Roman numerals)
+// Page numbers use the pageOffset to map to actual image files
 const sections: Section[] = [
+  {
+    title: "Front Matter",
+    page: -7,
+    subsections: [
+      { title: "Cover", page: -7 },
+      { title: "Title Page", page: -6 },
+      { title: "Preface", page: -5 },
+      { title: "Contents", page: -4 },
+      { title: "Contents (cont.)", page: -3 },
+      { title: "Contents (cont.)", page: -2 },
+      { title: "Introduction", page: -1 },
+    ],
+  },
   {
     title: "Title Page & Introduction",
     page: 0,
@@ -156,7 +172,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                     <div className="flex justify-between items-center">
                       <span className="text-sm">{section.title}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        p.{section.page}
+                        p.{formatDisplayPageNumber(section.page, appConfig.pageOffset)}
                       </span>
                     </div>
                   </button>
@@ -182,7 +198,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                         <div className="flex justify-between items-center">
                           <span className="text-xs">{subsection.title}</span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            p.{subsection.page}
+                            p.{formatDisplayPageNumber(subsection.page, appConfig.pageOffset)}
                           </span>
                         </div>
                       </button>
