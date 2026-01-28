@@ -45,6 +45,8 @@ const sections: Section[] = [
       { title: "Studies of the Slur", page: 39 },
       { title: "Lip Trills", page: 44 },
     ],
+  },
+  {
     title: "Scale Studies",
     page: 57,
     subsections: [

@@ -35,21 +35,47 @@ export default function ImageViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
-  // Reset loading state and zoom when page changes
+  // Detect desktop viewport (lg breakpoint: 1024px)
+  useEffect(() => {
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Reset loading state when page changes
+  // Zoom will be recalculated when the image loads (fit-to-screen on desktop, 100% on mobile)
   useEffect(() => {
     setIsLoading(true);
     setImageError(false);
-    setZoomLevel(1); // Reset zoom when changing pages
-  }, [currentPage]);
+    // On mobile, reset to 100% width; on desktop, zoom will be set when image loads
+    if (!isDesktop) {
+      setZoomLevel(1);
+    }
+  }, [currentPage, isDesktop]);
 
   // Check if image is already loaded (e.g., from cache) after mount/hydration
+  // Also calculate fit zoom on desktop for cached images
   useEffect(() => {
     const img = imageRef.current;
+    const container = containerRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       setIsLoading(false);
+      // On desktop, calculate zoom to fit entire page in viewport
+      if (isDesktop && container) {
+        const containerWidth = container.clientWidth - 32;
+        const containerHeight = container.clientHeight - 32 - 160;
+        const zoomToFitWidth = containerWidth / img.naturalWidth;
+        const zoomToFitHeight = containerHeight / img.naturalHeight;
+        const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
+        setZoomLevel(Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM)));
+      }
     }
   });
 
@@ -64,6 +90,27 @@ export default function ImageViewer({
 
   const resetZoom = useCallback(() => {
     setZoomLevel(1);
+  }, []);
+
+  // Calculate zoom level to fit entire image in viewport on desktop
+  const calculateFitZoom = useCallback(() => {
+    const container = containerRef.current;
+    const image = imageRef.current;
+    if (!container || !image || !image.naturalWidth || !image.naturalHeight) return 1;
+
+    // Get container dimensions (account for padding and bottom control bar)
+    const containerWidth = container.clientWidth - 32; // p-4 = 16px * 2
+    const containerHeight = container.clientHeight - 32 - 160; // p-4 + pb-40 (bottom bar space)
+
+    // Calculate zoom to fit width and height
+    const zoomToFitWidth = containerWidth / image.naturalWidth;
+    const zoomToFitHeight = containerHeight / image.naturalHeight;
+
+    // Use the smaller zoom to ensure entire image fits
+    const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
+
+    // Clamp to valid zoom range
+    return Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM));
   }, []);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
@@ -183,7 +230,14 @@ export default function ImageViewer({
               className={`h-auto shadow-lg transition-all duration-100 ${
                 isLoading ? 'opacity-0' : 'opacity-100'
               }`}
-              onLoad={() => setIsLoading(false)}
+              onLoad={() => {
+                setIsLoading(false);
+                // On desktop, calculate zoom to fit entire page in viewport
+                if (isDesktop) {
+                  const fitZoom = calculateFitZoom();
+                  setZoomLevel(fitZoom);
+                }
+              }}
               onError={() => {
                 setImageError(true);
                 setIsLoading(false);
