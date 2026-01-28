@@ -6,8 +6,8 @@ import TableOfContents from '@/components/TableOfContents';
 import { appConfig } from '@/config/app.config';
 
 export default function Home() {
-  const [currentPage, setCurrentPage] = useState(0); // Start with cover page
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentPage, setCurrentPage] = useState(-7); // Start with cover page (Roman numeral i)
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar hidden by default
   const [isFullscreen, setIsFullscreen] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
