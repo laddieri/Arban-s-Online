@@ -11,6 +11,7 @@ interface ImageViewerProps {
   onPageChange: (page: number) => void;
   imageFormat?: string;
   pageOffset?: number;
+  useImageProxy?: boolean;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -26,6 +27,7 @@ export default function ImageViewer({
   onPageChange,
   imageFormat = 'jpg',
   pageOffset = 0,
+  useImageProxy = false,
   isFullscreen = false,
   onToggleFullscreen
 }: ImageViewerProps) {
@@ -107,9 +109,13 @@ export default function ImageViewer({
   };
 
   // Construct image URL (apply offset to convert display page number to image file number)
+  // When useImageProxy is true, route through /api/image/[page] to avoid firewall blocks
   const getImageUrl = (pageNum: number) => {
     const imagePageNum = pageNum + pageOffset;
     const paddedNum = formatPageNumber(imagePageNum);
+    if (useImageProxy) {
+      return `/api/image/${paddedNum}`;
+    }
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };
 
@@ -311,6 +317,7 @@ export default function ImageViewer({
         baseUrl={baseUrl}
         imageFormat={imageFormat}
         pageOffset={pageOffset}
+        useImageProxy={useImageProxy}
       />
     </div>
   );
