@@ -185,8 +185,8 @@ export default function ImageViewer({
         </div>
       </div>
 
-      {/* Navigation and Zoom Controls - Fixed at bottom of viewer */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 z-10">
+      {/* Navigation and Zoom Controls - Fixed at bottom of viewport */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-80 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 z-20">
         <div className="flex flex-col gap-3 max-w-4xl mx-auto">
           {/* Zoom Controls */}
           <div className="flex items-center justify-center gap-3">
