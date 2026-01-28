@@ -141,7 +141,10 @@ export default function ImageViewer({
           overscrollBehavior: 'contain'
         }}
       >
-        <div className="p-4 flex justify-center" style={{ minHeight: '100%', alignItems: 'flex-start' }}>
+        <div
+          className={`p-4 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
+          style={{ minHeight: '100%' }}
+        >
           {isLoading && !imageError && (
             <div className="absolute flex items-center justify-center inset-0">
               <div className="text-lg text-gray-600 dark:text-gray-400">Loading page {formatDisplayPageNumber(currentPage, pageOffset)}...</div>
