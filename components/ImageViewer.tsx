@@ -128,10 +128,10 @@ export default function ImageViewer({
   }, [currentPage, totalPages, minPage]);
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="relative h-full bg-white dark:bg-gray-900">
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-800"
+        className="h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40"
         id="image-container"
         style={{
           WebkitOverflowScrolling: 'touch',
@@ -185,8 +185,8 @@ export default function ImageViewer({
         </div>
       </div>
 
-      {/* Navigation and Zoom Controls */}
-      <div className="bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 flex-shrink-0">
+      {/* Navigation and Zoom Controls - Fixed at bottom of viewer */}
+      <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 z-10">
         <div className="flex flex-col gap-3 max-w-4xl mx-auto">
           {/* Zoom Controls */}
           <div className="flex items-center justify-center gap-3">
