@@ -138,6 +138,7 @@ export default function Home() {
             onPageChange={handlePageChange}
             imageFormat={appConfig.imageFormat}
             pageOffset={appConfig.pageOffset}
+            useImageProxy={appConfig.useImageProxy}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
           />

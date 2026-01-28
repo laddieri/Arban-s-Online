@@ -6,6 +6,11 @@ export const appConfig = {
   // Example: 'https://pub-xxxxx.r2.dev' or 'https://your-custom-domain.com'
   imageBaseUrl: process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 'https://your-bucket.r2.dev',
 
+  // Use image proxy to serve images through the app's domain
+  // This helps avoid school/corporate firewall blocks on external CDN domains
+  // Set to 'true' to enable proxying images through /api/image/[page]
+  useImageProxy: process.env.NEXT_PUBLIC_USE_IMAGE_PROXY === 'true',
+
   // Total number of pages in your Arban's Method book
   // Update this after converting your PDF to images
   totalPages: parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '350'),

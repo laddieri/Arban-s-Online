@@ -10,6 +10,7 @@ interface PrintDialogProps {
   baseUrl: string;
   imageFormat: string;
   pageOffset?: number;
+  useImageProxy?: boolean;
 }
 
 export default function PrintDialog({
@@ -19,7 +20,8 @@ export default function PrintDialog({
   totalPages,
   baseUrl,
   imageFormat,
-  pageOffset = 0
+  pageOffset = 0,
+  useImageProxy = false
 }: PrintDialogProps) {
   const [printMode, setPrintMode] = useState<'current' | 'range' | 'selection'>('current');
   const [startPage, setStartPage] = useState(currentPage);
@@ -43,9 +45,13 @@ export default function PrintDialog({
   };
 
   // Get image URL for a page (apply offset to convert display page number to image file number)
+  // When useImageProxy is true, route through /api/image/[page] to avoid firewall blocks
   const getImageUrl = (pageNum: number) => {
     const imagePageNum = pageNum + pageOffset;
     const paddedNum = formatPageNumber(imagePageNum);
+    if (useImageProxy) {
+      return `/api/image/${paddedNum}`;
+    }
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };
 
