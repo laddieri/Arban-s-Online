@@ -9,6 +9,7 @@ interface PrintDialogProps {
   totalPages: number;
   baseUrl: string;
   imageFormat: string;
+  pageOffset?: number;
 }
 
 export default function PrintDialog({
@@ -17,7 +18,8 @@ export default function PrintDialog({
   currentPage,
   totalPages,
   baseUrl,
-  imageFormat
+  imageFormat,
+  pageOffset = 0
 }: PrintDialogProps) {
   const [printMode, setPrintMode] = useState<'current' | 'range' | 'selection'>('current');
   const [startPage, setStartPage] = useState(currentPage);
@@ -40,9 +42,10 @@ export default function PrintDialog({
     return num.toString().padStart(3, '0');
   };
 
-  // Get image URL for a page
+  // Get image URL for a page (apply offset to convert display page number to image file number)
   const getImageUrl = (pageNum: number) => {
-    const paddedNum = formatPageNumber(pageNum);
+    const imagePageNum = pageNum + pageOffset;
+    const paddedNum = formatPageNumber(imagePageNum);
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };
 

@@ -9,6 +9,7 @@ interface ImageViewerProps {
   currentPage: number;
   onPageChange: (page: number) => void;
   imageFormat?: string;
+  pageOffset?: number;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -23,6 +24,7 @@ export default function ImageViewer({
   currentPage,
   onPageChange,
   imageFormat = 'jpg',
+  pageOffset = 0,
   isFullscreen = false,
   onToggleFullscreen
 }: ImageViewerProps) {
@@ -101,9 +103,10 @@ export default function ImageViewer({
     return num.toString().padStart(3, '0');
   };
 
-  // Construct image URL
+  // Construct image URL (apply offset to convert display page number to image file number)
   const getImageUrl = (pageNum: number) => {
-    const paddedNum = formatPageNumber(pageNum);
+    const imagePageNum = pageNum + pageOffset;
+    const paddedNum = formatPageNumber(imagePageNum);
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };
 
@@ -295,6 +298,7 @@ export default function ImageViewer({
         totalPages={totalPages}
         baseUrl={baseUrl}
         imageFormat={imageFormat}
+        pageOffset={pageOffset}
       />
     </div>
   );
