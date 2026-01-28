@@ -20,21 +20,17 @@ interface TableOfContentsProps {
 // Page numbers use the pageOffset to map to actual image files
 const sections: Section[] = [
   {
-    title: "Front Matter",
+    title: "Title Page and Introduction",
     page: -7,
     subsections: [
       { title: "Cover", page: -7 },
-      { title: "Title Page", page: -6 },
+      { title: "Musical Terms", page: -6 },
       { title: "Preface", page: -5 },
       { title: "Contents", page: -4 },
       { title: "Contents (cont.)", page: -3 },
       { title: "Contents (cont.)", page: -2 },
       { title: "Introduction", page: -1 },
     ],
-  },
-  {
-    title: "Title Page & Introduction",
-    page: 0,
   },
   {
     title: "Part 1: First Studies",
