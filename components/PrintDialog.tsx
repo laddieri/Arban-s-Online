@@ -121,7 +121,7 @@ export default function PrintDialog({
             <style>
               @page {
                 size: letter;
-                margin: 0;
+                margin: 0 !important;
               }
               * {
                 margin: 0;
@@ -131,6 +131,10 @@ export default function PrintDialog({
               html, body {
                 width: 8.5in;
                 height: 11in;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
               }
               body {
                 background: white;
@@ -144,35 +148,42 @@ export default function PrintDialog({
                 width: 8.5in;
                 height: 11in;
                 padding: 0;
+                margin: 0;
                 overflow: hidden;
               }
               .page:last-child {
                 page-break-after: auto;
               }
               .page img {
-                max-width: 8.5in;
-                max-height: 11in;
-                width: auto;
-                height: auto;
+                width: 100%;
+                height: 100%;
                 object-fit: contain;
               }
               @media print {
+                @page {
+                  size: letter;
+                  margin: 0 !important;
+                }
                 html, body {
                   width: 8.5in;
                   height: 11in;
+                  margin: 0 !important;
+                  padding: 0 !important;
                 }
                 .page {
                   page-break-after: always;
                   page-break-inside: avoid;
                   width: 8.5in;
                   height: 11in;
+                  margin: 0 !important;
+                  padding: 0 !important;
                 }
                 .page:last-child {
                   page-break-after: auto;
                 }
                 .page img {
-                  max-width: 8.5in;
-                  max-height: 11in;
+                  width: 100%;
+                  height: 100%;
                   object-fit: contain;
                 }
               }
