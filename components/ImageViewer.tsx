@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PrintDialog from './PrintDialog';
-import { formatDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
+import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -266,14 +266,17 @@ export default function ImageViewer({
               <span className="text-sm">
                 Page{' '}
                 <input
-                  type="number"
-                  min={minPage}
-                  max={totalPages}
-                  value={currentPage}
-                  onChange={(e) => goToPage(parseInt(e.target.value) || 0)}
+                  type="text"
+                  value={formatDisplayPageNumber(currentPage, pageOffset)}
+                  onChange={(e) => {
+                    const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
+                    if (parsed !== null) {
+                      goToPage(parsed);
+                    }
+                  }}
                   className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
                 />
-                {' '}({formatDisplayPageNumber(currentPage, pageOffset)}) of {totalPages}
+                {' '}of {totalPages}
               </span>
             </div>
 
