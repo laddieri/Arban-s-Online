@@ -13,7 +13,7 @@ export const appConfig = {
 
   // Total number of pages in your Arban's Method book
   // Update this after converting your PDF to images
-  totalPages: parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '350'),
+  totalPages: parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347'),
 
   // Image format used (jpg, png, or webp)
   imageFormat: process.env.NEXT_PUBLIC_IMAGE_FORMAT || 'webp',
