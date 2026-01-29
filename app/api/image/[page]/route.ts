@@ -27,6 +27,16 @@ export async function GET(
     );
   }
 
+  // Validate page is within valid range (max 347 pages)
+  const totalPages = parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347');
+  const pageNum = parseInt(page);
+  if (pageNum < 1 || pageNum > totalPages) {
+    return NextResponse.json(
+      { error: 'Page number out of range' },
+      { status: 404 }
+    );
+  }
+
   const paddedPage = page.padStart(3, '0');
   const imageUrl = `${imageBaseUrl}/page-${paddedPage}.${imageFormat}`;
 
