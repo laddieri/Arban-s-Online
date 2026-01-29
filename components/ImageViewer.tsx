@@ -209,7 +209,7 @@ export default function ImageViewer({
         }}
       >
         <div
-          className={`p-4 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
+          className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
           style={{ minHeight: '100%' }}
         >
           {isLoading && !imageError && (
