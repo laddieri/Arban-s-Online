@@ -182,7 +182,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                   {hasSubsections ? (
                     <button
                       onClick={() => toggleSection(index)}
-                      className="p-1 mr-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition"
+                      className="p-1 mr-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 active:bg-blue-200 dark:active:bg-gray-600 rounded transition"
                       aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
                     >
                       <svg
@@ -201,7 +201,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                   {/* Section button */}
                   <button
                     onClick={() => hasSubsections ? toggleSection(index) : onPageSelect(section.page)}
-                    className={`flex-1 text-left px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-800 transition ${
+                    className={`flex-1 text-left px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-800 active:bg-blue-200 dark:active:bg-gray-600 transition ${
                       currentPage === section.page
                         ? 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-300 font-semibold'
                         : 'text-gray-700 dark:text-gray-300'
@@ -227,7 +227,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                       <button
                         key={subIndex}
                         onClick={() => onPageSelect(subsection.page)}
-                        className={`w-full text-left px-3 py-1.5 rounded hover:bg-blue-50 dark:hover:bg-gray-800 transition ${
+                        className={`w-full text-left px-3 py-1.5 rounded hover:bg-blue-50 dark:hover:bg-gray-800 active:bg-blue-200 dark:active:bg-gray-600 transition ${
                           currentPage === subsection.page
                             ? 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-300 font-semibold'
                             : 'text-gray-600 dark:text-gray-400'
