@@ -39,6 +39,7 @@ export default function ImageViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const initialZoomSetRef = useRef(false);
+  const savedScrollRef = useRef<{ top: number; left: number } | null>(null);
 
   // Detect desktop viewport (lg breakpoint: 1024px)
   useEffect(() => {
@@ -50,26 +51,29 @@ export default function ImageViewer({
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
-  // Reset loading state when page changes
-  // Zoom will be recalculated when the image loads (fit-to-screen on desktop, 100% on mobile)
+  // Reset loading state when page changes, but preserve zoom level and scroll position
   useEffect(() => {
+    // Save current scroll position before loading new page
+    const container = containerRef.current;
+    if (container) {
+      savedScrollRef.current = {
+        top: container.scrollTop,
+        left: container.scrollLeft
+      };
+    }
     setIsLoading(true);
     setImageError(false);
-    initialZoomSetRef.current = false; // Allow zoom to be recalculated for new page
-    // On mobile, reset to 100% width; on desktop, zoom will be set when image loads
-    if (!isDesktop) {
-      setZoomLevel(1);
-    }
-  }, [currentPage, isDesktop]);
+    // Don't reset zoom - keep the current zoom level when changing pages
+  }, [currentPage]);
 
   // Check if image is already loaded (e.g., from cache) after mount/hydration
-  // Also calculate fit zoom on desktop for cached images (only once per page)
+  // Also calculate fit zoom on desktop for cached images (only on first load)
   useEffect(() => {
     const img = imageRef.current;
     const container = containerRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       setIsLoading(false);
-      // On desktop, calculate zoom to fit entire page in viewport (only if not already set)
+      // On desktop, calculate zoom to fit entire page in viewport (only on first load)
       if (isDesktop && container && !initialZoomSetRef.current) {
         const containerWidth = container.clientWidth - 32;
         const containerHeight = container.clientHeight - 32 - 160;
@@ -78,6 +82,11 @@ export default function ImageViewer({
         const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
         setZoomLevel(Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM)));
         initialZoomSetRef.current = true;
+      }
+      // Restore scroll position for cached images
+      if (container && savedScrollRef.current) {
+        container.scrollTop = savedScrollRef.current.top;
+        container.scrollLeft = savedScrollRef.current.left;
       }
     }
   }, [isDesktop, currentPage]);
@@ -235,11 +244,17 @@ export default function ImageViewer({
               }`}
               onLoad={() => {
                 setIsLoading(false);
-                // On desktop, calculate zoom to fit entire page in viewport (only if not already set)
+                // On desktop, calculate zoom to fit entire page in viewport (only on first load)
                 if (isDesktop && !initialZoomSetRef.current) {
                   const fitZoom = calculateFitZoom();
                   setZoomLevel(fitZoom);
                   initialZoomSetRef.current = true;
+                }
+                // Restore scroll position after image loads
+                const container = containerRef.current;
+                if (container && savedScrollRef.current) {
+                  container.scrollTop = savedScrollRef.current.top;
+                  container.scrollLeft = savedScrollRef.current.left;
                 }
               }}
               onError={() => {
