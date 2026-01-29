@@ -38,6 +38,7 @@ export default function ImageViewer({
   const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const initialZoomSetRef = useRef(false);
 
   // Detect desktop viewport (lg breakpoint: 1024px)
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function ImageViewer({
   useEffect(() => {
     setIsLoading(true);
     setImageError(false);
+    initialZoomSetRef.current = false; // Allow zoom to be recalculated for new page
     // On mobile, reset to 100% width; on desktop, zoom will be set when image loads
     if (!isDesktop) {
       setZoomLevel(1);
@@ -61,23 +63,24 @@ export default function ImageViewer({
   }, [currentPage, isDesktop]);
 
   // Check if image is already loaded (e.g., from cache) after mount/hydration
-  // Also calculate fit zoom on desktop for cached images
+  // Also calculate fit zoom on desktop for cached images (only once per page)
   useEffect(() => {
     const img = imageRef.current;
     const container = containerRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       setIsLoading(false);
-      // On desktop, calculate zoom to fit entire page in viewport
-      if (isDesktop && container) {
+      // On desktop, calculate zoom to fit entire page in viewport (only if not already set)
+      if (isDesktop && container && !initialZoomSetRef.current) {
         const containerWidth = container.clientWidth - 32;
         const containerHeight = container.clientHeight - 32 - 160;
         const zoomToFitWidth = containerWidth / img.naturalWidth;
         const zoomToFitHeight = containerHeight / img.naturalHeight;
         const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
         setZoomLevel(Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM)));
+        initialZoomSetRef.current = true;
       }
     }
-  });
+  }, [isDesktop, currentPage]);
 
   // Zoom functions
   const zoomIn = useCallback(() => {
@@ -232,10 +235,11 @@ export default function ImageViewer({
               }`}
               onLoad={() => {
                 setIsLoading(false);
-                // On desktop, calculate zoom to fit entire page in viewport
-                if (isDesktop) {
+                // On desktop, calculate zoom to fit entire page in viewport (only if not already set)
+                if (isDesktop && !initialZoomSetRef.current) {
                   const fitZoom = calculateFitZoom();
                   setZoomLevel(fitZoom);
+                  initialZoomSetRef.current = true;
                 }
               }}
               onError={() => {
