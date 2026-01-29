@@ -27,10 +27,10 @@ export async function GET(
     );
   }
 
-  // Validate page is within valid range (max 347 pages)
+  // Validate page is within valid range (pages 0-347)
   const totalPages = parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347');
   const pageNum = parseInt(page);
-  if (pageNum < 1 || pageNum > totalPages) {
+  if (pageNum < 0 || pageNum > totalPages) {
     return NextResponse.json(
       { error: 'Page number out of range' },
       { status: 404 }

@@ -83,9 +83,11 @@ export default function ImageViewer({
         const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
         setZoomLevel(Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM)));
         initialZoomSetRef.current = true;
+        // Scroll to top so image sits against header
+        container.scrollTop = 0;
       }
-      // Restore scroll position for cached images
-      if (container && savedScrollRef.current) {
+      // Restore scroll position for cached images (for page changes)
+      else if (container && savedScrollRef.current) {
         container.scrollTop = savedScrollRef.current.top;
         container.scrollLeft = savedScrollRef.current.left;
       }
@@ -210,7 +212,7 @@ export default function ImageViewer({
       >
         <div
           className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
-          style={{ minHeight: '100%' }}
+          style={isDesktop ? undefined : { minHeight: '100%' }}
         >
           {isLoading && !imageError && (
             <div className="absolute flex items-center justify-center inset-0">
@@ -246,15 +248,19 @@ export default function ImageViewer({
               }`}
               onLoad={() => {
                 setIsLoading(false);
+                const container = containerRef.current;
                 // On desktop, calculate zoom to fit entire page in viewport (only on first load)
                 if (isDesktop && !initialZoomSetRef.current) {
                   const fitZoom = calculateFitZoom();
                   setZoomLevel(fitZoom);
                   initialZoomSetRef.current = true;
+                  // Scroll to top so image sits against header
+                  if (container) {
+                    container.scrollTop = 0;
+                  }
                 }
-                // Restore scroll position after image loads
-                const container = containerRef.current;
-                if (container && savedScrollRef.current) {
+                // Restore scroll position after image loads (for page changes)
+                else if (container && savedScrollRef.current) {
                   container.scrollTop = savedScrollRef.current.top;
                   container.scrollLeft = savedScrollRef.current.left;
                 }
