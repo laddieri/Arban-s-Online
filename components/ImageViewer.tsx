@@ -275,11 +275,11 @@ export default function ImageViewer({
       {/* Navigation and Zoom Controls - Fixed at bottom of viewport */}
       <div className="fixed bottom-0 left-0 right-0 lg:left-80 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 lg:p-2 z-20">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4 max-w-4xl mx-auto">
-          {/* Page Navigation - Previous button */}
+          {/* Page Navigation - Previous button (desktop only, shown inline) */}
           <button
             onClick={goToPreviousPage}
             disabled={currentPage <= minPage}
-            className="px-4 py-2 lg:py-1 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition order-2 lg:order-1"
+            className="hidden lg:block px-4 py-1 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
           >
             Previous
           </button>
@@ -365,8 +365,16 @@ export default function ImageViewer({
             </span>
           </div>
 
-          {/* Page Navigation - mobile page indicator and Next button */}
-          <div className="flex items-center justify-between lg:justify-end order-3">
+          {/* Page Navigation row - mobile: Prev | Page | Next, desktop: just Next button */}
+          <div className="flex items-center justify-between order-2 lg:order-3">
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage <= minPage}
+              className="lg:hidden px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
+            >
+              Previous
+            </button>
+
             <span className="text-sm lg:hidden">
               Page{' '}
               <input
@@ -393,7 +401,7 @@ export default function ImageViewer({
           </div>
 
           {/* Zoom hint - mobile only */}
-          <p className="text-xs text-gray-500 dark:text-gray-500 text-center lg:hidden order-4">
+          <p className="text-xs text-gray-500 dark:text-gray-500 text-center lg:hidden order-3">
             Tip: Hold Ctrl/Cmd + scroll to zoom
           </p>
         </div>
