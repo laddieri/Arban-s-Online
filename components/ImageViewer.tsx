@@ -76,7 +76,8 @@ export default function ImageViewer({
       // On desktop, calculate zoom to fit entire page in viewport (only on first load)
       if (isDesktop && container && !initialZoomSetRef.current) {
         const containerWidth = container.clientWidth - 32;
-        const containerHeight = container.clientHeight - 32 - 160;
+        const bottomBarHeight = 64; // lg:pb-16 (64px) on desktop
+        const containerHeight = container.clientHeight - 32 - bottomBarHeight;
         const zoomToFitWidth = containerWidth / img.naturalWidth;
         const zoomToFitHeight = containerHeight / img.naturalHeight;
         const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
@@ -112,7 +113,8 @@ export default function ImageViewer({
 
     // Get container dimensions (account for padding and bottom control bar)
     const containerWidth = container.clientWidth - 32; // p-4 = 16px * 2
-    const containerHeight = container.clientHeight - 32 - 160; // p-4 + pb-40 (bottom bar space)
+    const bottomBarHeight = isDesktop ? 64 : 160; // lg:pb-16 (64px) vs pb-40 (160px)
+    const containerHeight = container.clientHeight - 32 - bottomBarHeight;
 
     // Calculate zoom to fit width and height
     const zoomToFitWidth = containerWidth / image.naturalWidth;
@@ -123,7 +125,7 @@ export default function ImageViewer({
 
     // Clamp to valid zoom range
     return Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM));
-  }, []);
+  }, [isDesktop]);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
   useEffect(() => {
@@ -196,7 +198,7 @@ export default function ImageViewer({
     <div className="relative h-full bg-white dark:bg-gray-900">
       <div
         ref={containerRef}
-        className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40 image-viewer-scroll ${
+        className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40 lg:pb-16 image-viewer-scroll ${
           zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
         id="image-container"
@@ -271,14 +273,23 @@ export default function ImageViewer({
       </div>
 
       {/* Navigation and Zoom Controls - Fixed at bottom of viewport */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-80 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 z-20">
-        <div className="flex flex-col gap-3 max-w-4xl mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 lg:left-80 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 lg:p-2 z-20">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4 max-w-4xl mx-auto">
+          {/* Page Navigation - Previous button */}
+          <button
+            onClick={goToPreviousPage}
+            disabled={currentPage <= minPage}
+            className="px-4 py-2 lg:py-1 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition order-2 lg:order-1"
+          >
+            Previous
+          </button>
+
           {/* Zoom Controls */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-2 lg:gap-1 order-1 lg:order-2">
             <button
               onClick={zoomOut}
               disabled={zoomLevel <= MIN_ZOOM}
-              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
+              className="px-3 py-1 lg:px-2 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
               title="Zoom out"
             >
               −
@@ -290,18 +301,18 @@ export default function ImageViewer({
               step={ZOOM_STEP}
               value={zoomLevel}
               onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-              className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              className="w-24 lg:w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
               title="Zoom level"
             />
             <button
               onClick={zoomIn}
               disabled={zoomLevel >= MAX_ZOOM}
-              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
+              className="px-3 py-1 lg:px-2 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
               title="Zoom in"
             >
               +
             </button>
-            <span className="text-sm text-gray-600 dark:text-gray-400 w-14 text-center">
+            <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-center">
               {Math.round(zoomLevel * 100)}%
             </span>
             <button
@@ -313,7 +324,7 @@ export default function ImageViewer({
             </button>
             <button
               onClick={onToggleFullscreen}
-              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
@@ -328,54 +339,61 @@ export default function ImageViewer({
             </button>
             <button
               onClick={() => setIsPrintDialogOpen(true)}
-              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ml-2"
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
               title="Print pages"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
             </button>
+
+            {/* Page indicator - desktop only, inline with controls */}
+            <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
+              Page{' '}
+              <input
+                type="text"
+                value={formatDisplayPageNumber(currentPage, pageOffset)}
+                onChange={(e) => {
+                  const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
+                  if (parsed !== null) {
+                    goToPage(parsed);
+                  }
+                }}
+                className="w-14 px-1 py-0.5 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800 text-sm"
+              />
+              {' '}/ {totalPages}
+            </span>
           </div>
 
-          {/* Page Navigation */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={goToPreviousPage}
-              disabled={currentPage <= minPage}
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
-            >
-              Previous
-            </button>
-
-            <div className="flex items-center gap-4">
-              <span className="text-sm">
-                Page{' '}
-                <input
-                  type="text"
-                  value={formatDisplayPageNumber(currentPage, pageOffset)}
-                  onChange={(e) => {
-                    const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
-                    if (parsed !== null) {
-                      goToPage(parsed);
-                    }
-                  }}
-                  className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
-                />
-                {' '}of {totalPages}
-              </span>
-            </div>
+          {/* Page Navigation - mobile page indicator and Next button */}
+          <div className="flex items-center justify-between lg:justify-end order-3">
+            <span className="text-sm lg:hidden">
+              Page{' '}
+              <input
+                type="text"
+                value={formatDisplayPageNumber(currentPage, pageOffset)}
+                onChange={(e) => {
+                  const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
+                  if (parsed !== null) {
+                    goToPage(parsed);
+                  }
+                }}
+                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
+              />
+              {' '}of {totalPages}
+            </span>
 
             <button
               onClick={goToNextPage}
               disabled={currentPage >= totalPages}
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
+              className="px-4 py-2 lg:py-1 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
             >
               Next
             </button>
           </div>
 
-          {/* Zoom hint */}
-          <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
+          {/* Zoom hint - mobile only */}
+          <p className="text-xs text-gray-500 dark:text-gray-500 text-center lg:hidden order-4">
             Tip: Hold Ctrl/Cmd + scroll to zoom
           </p>
         </div>
