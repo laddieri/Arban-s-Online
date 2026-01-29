@@ -200,7 +200,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
 
                   {/* Section button */}
                   <button
-                    onClick={() => onPageSelect(section.page)}
+                    onClick={() => hasSubsections ? toggleSection(index) : onPageSelect(section.page)}
                     className={`flex-1 text-left px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-800 transition ${
                       currentPage === section.page
                         ? 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-300 font-semibold'
