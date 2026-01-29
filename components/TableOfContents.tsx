@@ -155,13 +155,12 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
 
   const toggleSection = (index: number) => {
     setExpandedSections(prev => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
+      // If clicking the already-open section, close it
+      if (prev.has(index)) {
+        return new Set();
       }
-      return next;
+      // Otherwise, close all others and open only this one (accordion behavior)
+      return new Set([index]);
     });
   };
 
