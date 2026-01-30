@@ -54,8 +54,8 @@ export default function Home() {
 
   return (
     <div ref={mainContainerRef} className="flex flex-col h-screen h-[100dvh] overflow-hidden bg-white dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-blue-700 text-white p-4 shadow-lg relative z-50 flex-shrink-0">
+      {/* Header - hidden on desktop when in fullscreen */}
+      <header className={`bg-blue-700 text-white p-4 shadow-lg relative z-50 flex-shrink-0 ${isFullscreen ? 'hidden' : ''}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
