@@ -42,6 +42,8 @@ export default function ImageViewer({
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [showLeftNav, setShowLeftNav] = useState(false);
+  const [showRightNav, setShowRightNav] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const initialZoomSetRef = useRef(false);
@@ -56,6 +58,38 @@ export default function ImageViewer({
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
+
+  // Track mouse position for edge navigation buttons (desktop only)
+  useEffect(() => {
+    if (!isDesktop) return;
+
+    const EDGE_THRESHOLD = 80; // pixels from edge to trigger
+    const sidebarWidth = sidebarOpen ? 320 : 0; // w-80 = 320px
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const windowWidth = window.innerWidth;
+      const x = e.clientX;
+
+      // Check if near left edge (accounting for sidebar)
+      setShowLeftNav(x >= sidebarWidth && x < sidebarWidth + EDGE_THRESHOLD);
+
+      // Check if near right edge
+      setShowRightNav(x > windowWidth - EDGE_THRESHOLD);
+    };
+
+    const handleMouseLeave = () => {
+      setShowLeftNav(false);
+      setShowRightNav(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [isDesktop, sidebarOpen]);
 
   // Reset loading state when page changes, but preserve zoom level and scroll position
   useEffect(() => {
@@ -223,6 +257,40 @@ export default function ImageViewer({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
+      )}
+
+      {/* Edge navigation buttons - appear when mouse is near screen edges (desktop only) */}
+      {isDesktop && (
+        <>
+          {/* Previous page - left edge */}
+          <button
+            onClick={goToPreviousPage}
+            disabled={currentPage <= minPage}
+            className={`fixed top-1/2 -translate-y-1/2 z-30 h-32 w-12 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white rounded-r-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${
+              showLeftNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            style={{ left: sidebarOpen ? '320px' : '0px' }}
+            title="Previous page"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          {/* Next page - right edge */}
+          <button
+            onClick={goToNextPage}
+            disabled={currentPage >= totalPages}
+            className={`fixed right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-12 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white rounded-l-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${
+              showRightNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            title="Next page"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
       )}
 
       <div
