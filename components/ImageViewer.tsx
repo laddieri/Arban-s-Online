@@ -204,6 +204,27 @@ export default function ImageViewer({
 
   return (
     <div className="relative h-full bg-white dark:bg-gray-900">
+      {/* Left-side TOC toggle arrow - only visible in fullscreen mode on desktop */}
+      {isFullscreen && onToggleSidebar && isDesktop && (
+        <button
+          onClick={onToggleSidebar}
+          className={`fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg transition-all duration-300 ${
+            sidebarOpen ? 'translate-x-80' : 'translate-x-0'
+          }`}
+          title={sidebarOpen ? "Hide table of contents" : "Show table of contents"}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`h-5 w-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
       <div
         ref={containerRef}
         className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40 lg:pb-16 image-viewer-scroll ${
@@ -369,20 +390,6 @@ export default function ImageViewer({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </button>
-            {/* Table of Contents toggle - only visible in fullscreen mode */}
-            {isFullscreen && onToggleSidebar && (
-              <button
-                onClick={onToggleSidebar}
-                className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
-                  sidebarOpen ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
-                }`}
-                title={sidebarOpen ? "Hide table of contents" : "Show table of contents"}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
-              </button>
-            )}
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
