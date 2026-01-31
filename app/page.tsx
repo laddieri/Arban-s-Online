@@ -113,7 +113,7 @@ export default function Home() {
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-80 transition-transform duration-300 ease-in-out lg:block`}
+          } ${isFullscreen ? '' : 'lg:translate-x-0 lg:static'} fixed inset-y-0 left-0 z-30 w-80 transition-transform duration-300 ease-in-out`}
         >
           <TableOfContents
             onPageSelect={handlePageChange}
@@ -121,10 +121,10 @@ export default function Home() {
           />
         </aside>
 
-        {/* Overlay for mobile */}
+        {/* Overlay for mobile and fullscreen mode */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+            className={`fixed inset-0 bg-black bg-opacity-50 z-20 ${isFullscreen ? '' : 'lg:hidden'}`}
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -141,6 +141,8 @@ export default function Home() {
             useImageProxy={appConfig.useImageProxy}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
         </main>
 
