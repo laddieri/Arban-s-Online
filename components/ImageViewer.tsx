@@ -14,6 +14,8 @@ interface ImageViewerProps {
   useImageProxy?: boolean;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  sidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 const MIN_ZOOM = 0.5;
@@ -29,7 +31,9 @@ export default function ImageViewer({
   pageOffset = 0,
   useImageProxy = false,
   isFullscreen = false,
-  onToggleFullscreen
+  onToggleFullscreen,
+  sidebarOpen = false,
+  onToggleSidebar
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -279,7 +283,7 @@ export default function ImageViewer({
       </div>
 
       {/* Navigation and Zoom Controls - Fixed at bottom of viewport */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-80 bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 lg:p-2 z-20">
+      <div className={`fixed bottom-0 left-0 right-0 ${isFullscreen && !sidebarOpen ? '' : 'lg:left-80'} bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 lg:p-2 z-20`}>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4 max-w-4xl mx-auto">
           {/* Page Navigation - Previous button (desktop only, shown inline) */}
           <button
@@ -352,6 +356,20 @@ export default function ImageViewer({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
             </button>
+            {/* Table of Contents toggle - only visible in fullscreen mode */}
+            {isFullscreen && onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
+                  sidebarOpen ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+                title={sidebarOpen ? "Hide table of contents" : "Show table of contents"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+              </button>
+            )}
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
