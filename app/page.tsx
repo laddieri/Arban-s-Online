@@ -7,7 +7,7 @@ import { appConfig } from '@/config/app.config';
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState(-7); // Start with cover page (Roman numeral i)
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar hidden by default
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Sidebar visible by default on desktop
   const [isFullscreen, setIsFullscreen] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
@@ -112,8 +112,8 @@ export default function Home() {
         {/* Sidebar - Table of Contents */}
         <aside
           className={`${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } ${isFullscreen ? '' : 'lg:translate-x-0 lg:static'} fixed inset-y-0 left-0 z-30 w-80 transition-transform duration-300 ease-in-out`}
+            sidebarOpen ? 'translate-x-0 lg:static' : '-translate-x-full lg:absolute'
+          } fixed inset-y-0 left-0 z-30 w-80 transition-transform duration-300 ease-in-out`}
         >
           <TableOfContents
             onPageSelect={handlePageChange}
@@ -121,10 +121,10 @@ export default function Home() {
           />
         </aside>
 
-        {/* Overlay for mobile and fullscreen mode */}
+        {/* Overlay for mobile */}
         {sidebarOpen && (
           <div
-            className={`fixed inset-0 bg-black bg-opacity-50 z-20 ${isFullscreen ? '' : 'lg:hidden'}`}
+            className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
