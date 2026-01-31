@@ -204,8 +204,8 @@ export default function ImageViewer({
 
   return (
     <div className="relative h-full bg-white dark:bg-gray-900">
-      {/* Left-side TOC toggle arrow - only visible in fullscreen mode on desktop */}
-      {isFullscreen && onToggleSidebar && isDesktop && (
+      {/* Left-side TOC toggle arrow - visible on desktop */}
+      {onToggleSidebar && isDesktop && (
         <button
           onClick={onToggleSidebar}
           className={`fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg transition-all duration-300 ${
@@ -306,7 +306,7 @@ export default function ImageViewer({
       </div>
 
       {/* Navigation and Zoom Controls - Fixed at bottom of viewport */}
-      <div className={`fixed bottom-0 left-0 right-0 ${isFullscreen && !sidebarOpen ? '' : 'lg:left-80'} bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 lg:p-2 z-20`}>
+      <div className={`fixed bottom-0 left-0 right-0 ${sidebarOpen ? 'lg:left-80' : ''} bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4 lg:p-2 z-20`}>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4 max-w-4xl mx-auto">
           {/* Page Navigation - Previous button (desktop only, shown inline) */}
           <button
