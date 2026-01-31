@@ -91,6 +91,34 @@ export default function ImageViewer({
     };
   }, [isDesktop, sidebarOpen]);
 
+  // Keyboard navigation with arrow keys
+  useEffect(() => {
+    const minPageValue = getMinPage(pageOffset);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't navigate if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentPage > minPageValue) {
+          onPageChange(currentPage - 1);
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentPage < totalPages) {
+          onPageChange(currentPage + 1);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, pageOffset, totalPages, onPageChange]);
+
   // Reset loading state when page changes, but preserve zoom level and scroll position
   useEffect(() => {
     // Save current scroll position before loading new page
