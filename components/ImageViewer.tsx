@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PrintDialog from './PrintDialog';
+import MetronomeOverlay from './MetronomeOverlay';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 
 interface ImageViewerProps {
@@ -39,6 +40,7 @@ export default function ImageViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -356,6 +358,17 @@ export default function ImageViewer({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
             </button>
+            <button
+              onClick={() => setIsMetronomeOpen(!isMetronomeOpen)}
+              className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
+                isMetronomeOpen ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+              title={isMetronomeOpen ? "Close metronome" : "Open metronome"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+            </button>
             {/* Table of Contents toggle - only visible in fullscreen mode */}
             {isFullscreen && onToggleSidebar && (
               <button
@@ -441,6 +454,12 @@ export default function ImageViewer({
         imageFormat={imageFormat}
         pageOffset={pageOffset}
         useImageProxy={useImageProxy}
+      />
+
+      {/* Metronome Overlay */}
+      <MetronomeOverlay
+        isOpen={isMetronomeOpen}
+        onClose={() => setIsMetronomeOpen(false)}
       />
     </div>
   );
