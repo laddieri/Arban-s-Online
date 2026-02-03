@@ -44,6 +44,7 @@ export default function ImageViewer({
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
+  const [imageNaturalWidth, setImageNaturalWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const initialZoomSetRef = useRef(false);
@@ -338,10 +339,14 @@ export default function ImageViewer({
         }}
       >
         <div
-          className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
+          className={`pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start px-4' : ''}`}
           style={{
             ...(isDesktop ? {} : { minHeight: '100%' }),
-            ...(zoomLevel > 1 ? { width: `${zoomLevel * 100}%` } : {})
+            ...(zoomLevel > 1 && imageNaturalWidth > 0 ? {
+              width: `${Math.ceil(imageNaturalWidth * zoomLevel) + 32}px`,
+              paddingLeft: '16px',
+              paddingRight: '16px'
+            } : {})
           }}
         >
           {isLoading && !imageError && (
@@ -376,8 +381,10 @@ export default function ImageViewer({
               className={`h-auto shadow-lg transition-all duration-100 ${
                 isLoading ? 'opacity-0' : 'opacity-100'
               }`}
-              onLoad={() => {
+              onLoad={(e) => {
+                const img = e.currentTarget;
                 setIsLoading(false);
+                setImageNaturalWidth(img.naturalWidth);
                 const container = containerRef.current;
                 // On desktop, calculate zoom to fit entire page in viewport (only on first load)
                 if (isDesktop && !initialZoomSetRef.current) {
@@ -400,7 +407,7 @@ export default function ImageViewer({
                 setIsLoading(false);
               }}
               style={{
-                width: zoomLevel > 1 ? '100%' : `${zoomLevel * 100}%`,
+                width: imageNaturalWidth > 0 ? `${Math.ceil(imageNaturalWidth * zoomLevel)}px` : `${zoomLevel * 100}%`,
                 maxWidth: 'none'
               }}
             />
