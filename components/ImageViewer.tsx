@@ -338,7 +338,7 @@ export default function ImageViewer({
         }}
       >
         <div
-          className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
+          className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : 'inline-block min-w-full'}`}
           style={isDesktop ? undefined : { minHeight: '100%' }}
         >
           {isLoading && !imageError && (
