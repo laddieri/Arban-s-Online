@@ -338,8 +338,11 @@ export default function ImageViewer({
         }}
       >
         <div
-          className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : 'inline-block min-w-full'}`}
-          style={isDesktop ? undefined : { minHeight: '100%' }}
+          className={`px-4 pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
+          style={{
+            ...(isDesktop ? {} : { minHeight: '100%' }),
+            ...(zoomLevel > 1 ? { width: `${zoomLevel * 100}%` } : {})
+          }}
         >
           {isLoading && !imageError && (
             <div className="absolute flex items-center justify-center inset-0">
@@ -397,7 +400,7 @@ export default function ImageViewer({
                 setIsLoading(false);
               }}
               style={{
-                width: `${zoomLevel * 100}%`,
+                width: zoomLevel > 1 ? '100%' : `${zoomLevel * 100}%`,
                 maxWidth: 'none'
               }}
             />
