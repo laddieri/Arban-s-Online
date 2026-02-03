@@ -130,7 +130,7 @@ export default function Home() {
         )}
 
         {/* Image Viewer */}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-auto">
           <ImageViewer
             baseUrl={appConfig.imageBaseUrl}
             totalPages={appConfig.totalPages}
