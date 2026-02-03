@@ -274,7 +274,7 @@ export default function ImageViewer({
       {onToggleSidebar && isDesktop && (
         <button
           onClick={onToggleSidebar}
-          className={`fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg transition-all duration-300 ${
+          className={`fixed left-0 top-24 z-40 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg transition-all duration-300 ${
             sidebarOpen ? 'translate-x-80' : 'translate-x-0'
           }`}
           title={sidebarOpen ? "Hide table of contents" : "Show table of contents"}
