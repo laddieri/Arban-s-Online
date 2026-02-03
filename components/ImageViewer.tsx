@@ -145,7 +145,8 @@ export default function ImageViewer({
       if (isDesktop && container && !initialZoomSetRef.current) {
         const containerWidth = container.clientWidth - 32;
         const bottomBarHeight = 64; // lg:pb-16 (64px) on desktop
-        const containerHeight = container.clientHeight - 32 - bottomBarHeight;
+        const verticalPadding = 16; // Only bottom padding on desktop (lg:pt-0)
+        const containerHeight = container.clientHeight - verticalPadding - bottomBarHeight;
         const zoomToFitWidth = containerWidth / img.naturalWidth;
         const zoomToFitHeight = containerHeight / img.naturalHeight;
         const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
@@ -184,7 +185,10 @@ export default function ImageViewer({
     // Get container dimensions (account for padding and bottom control bar)
     const containerWidth = container.clientWidth - 32; // p-4 = 16px * 2
     const bottomBarHeight = isDesktop ? 64 : 160; // lg:pb-16 (64px) vs pb-40 (160px)
-    const containerHeight = container.clientHeight - 32 - bottomBarHeight;
+    // On desktop, only bottom padding (pb-4 = 16px), no top padding (lg:pt-0)
+    // On mobile, both top and bottom padding (pt-4 + pb-4 = 32px)
+    const verticalPadding = isDesktop ? 16 : 32;
+    const containerHeight = container.clientHeight - verticalPadding - bottomBarHeight;
 
     // Calculate zoom to fit width and height
     const zoomToFitWidth = containerWidth / image.naturalWidth;
