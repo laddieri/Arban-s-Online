@@ -27,10 +27,14 @@ export async function GET(
     );
   }
 
-  // Validate page is within valid range (pages 0-347)
+  // Validate page is within valid range
+  // Note: The API receives image file numbers (with offset applied), not display page numbers
+  // Max valid image file number = totalPages + pageOffset
   const totalPages = parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347');
+  const pageOffset = parseInt(process.env.NEXT_PUBLIC_PAGE_OFFSET || '7');
+  const maxImagePageNum = totalPages + pageOffset;
   const pageNum = parseInt(page);
-  if (pageNum < 0 || pageNum > totalPages) {
+  if (pageNum < 0 || pageNum > maxImagePageNum) {
     return NextResponse.json(
       { error: 'Page number out of range' },
       { status: 404 }
