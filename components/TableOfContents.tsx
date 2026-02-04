@@ -220,7 +220,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                 {hasSubsections && (
                   <div
                     className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-200 ${
-                      isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                      isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                     }`}
                   >
                     {section.subsections!.map((subsection, subIndex) => (

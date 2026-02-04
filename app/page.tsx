@@ -113,7 +113,7 @@ export default function Home() {
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0 lg:static' : '-translate-x-full lg:absolute'
-          } fixed inset-y-0 left-0 z-30 w-80 transition-transform duration-300 ease-in-out`}
+          } fixed inset-y-0 left-0 z-30 w-80 h-full transition-transform duration-300 ease-in-out`}
         >
           <TableOfContents
             onPageSelect={handlePageChange}
