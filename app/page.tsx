@@ -108,7 +108,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-x-auto overflow-y-hidden">
         {/* Sidebar - Table of Contents */}
         <aside
           className={`${
