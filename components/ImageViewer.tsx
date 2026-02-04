@@ -45,10 +45,12 @@ export default function ImageViewer({
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
   const [imageNaturalWidth, setImageNaturalWidth] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const initialZoomSetRef = useRef(false);
   const savedScrollRef = useRef<{ top: number; left: number } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
 
   // Detect desktop viewport (lg breakpoint: 1024px)
   useEffect(() => {
@@ -219,6 +221,60 @@ export default function ImageViewer({
     return () => container.removeEventListener('wheel', handleWheel);
   }, []);
 
+  // Handle click-to-drag panning when zoomed in
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    // Only enable drag when zoomed in beyond 100%
+    if (zoomLevel <= 1) return;
+
+    // Don't start drag if clicking on a button or interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('a')) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: container.scrollLeft,
+      scrollTop: container.scrollTop
+    };
+
+    // Prevent text selection while dragging
+    e.preventDefault();
+  }, [zoomLevel]);
+
+  // Handle drag movement and end on document level
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = containerRef.current;
+      const dragStart = dragStartRef.current;
+      if (!container || !dragStart) return;
+
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+
+      container.scrollLeft = dragStart.scrollLeft - deltaX;
+      container.scrollTop = dragStart.scrollTop - deltaY;
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      dragStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   const minPage = getMinPage(pageOffset);
 
   const goToPreviousPage = () => {
@@ -329,13 +385,15 @@ export default function ImageViewer({
       <div
         ref={containerRef}
         className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40 lg:pb-16 image-viewer-scroll ${
-          zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+          zoomLevel > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
         }`}
         id="image-container"
+        onMouseDown={handleDragStart}
         style={{
           WebkitOverflowScrolling: 'touch',
           touchAction: zoomLevel > 1 ? 'pan-x pan-y' : 'auto',
-          overscrollBehavior: 'contain'
+          overscrollBehavior: 'contain',
+          userSelect: isDragging ? 'none' : 'auto'
         }}
       >
         <div
