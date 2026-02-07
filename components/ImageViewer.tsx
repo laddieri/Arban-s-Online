@@ -44,7 +44,7 @@ export default function ImageViewer({
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
-  const [imageNaturalWidth, setImageNaturalWidth] = useState(0);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const initialZoomSetRef = useRef(false);
@@ -149,24 +149,24 @@ export default function ImageViewer({
   }, []);
 
   // Calculate zoom level to fit entire image in viewport
+  // Zoom is container-relative: zoom=1 means image fills the container width.
+  // This ensures consistent visual sizing regardless of each page's native resolution.
   const calculateFitZoom = useCallback(() => {
     const container = containerRef.current;
     const image = imageRef.current;
     if (!container || !image || !image.naturalWidth || !image.naturalHeight) return 1;
 
-    // Get container dimensions (account for bottom control bar overlay)
     const containerWidth = container.clientWidth;
     const bottomBarHeight = isDesktop ? 64 : 160; // lg:pb-16 (64px) vs pb-40 (160px)
-    const containerHeight = container.clientHeight - bottomBarHeight;
+    const availableHeight = container.clientHeight - bottomBarHeight;
 
-    // Calculate zoom to fit width and height
-    const zoomToFitWidth = containerWidth / image.naturalWidth;
-    const zoomToFitHeight = containerHeight / image.naturalHeight;
+    // At zoom=1 the image fills container width. Check if that makes it too tall.
+    const heightAtFullWidth = containerWidth * (image.naturalHeight / image.naturalWidth);
+    const zoomToFitHeight = availableHeight / heightAtFullWidth;
 
-    // Use the smaller zoom to ensure entire image fits
-    const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
+    // fitZoom ≤ 1 means we need to shrink to fit height; otherwise width already fits
+    const fitZoom = Math.min(1, zoomToFitHeight);
 
-    // Clamp to valid zoom range
     return Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM));
   }, [isDesktop]);
 
@@ -331,12 +331,10 @@ export default function ImageViewer({
         }}
       >
         <div
-          className={`${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
           style={{
+            width: `${zoomLevel * 100}%`,
+            ...(zoomLevel <= 1 ? { margin: '0 auto' } : {}),
             ...(isDesktop ? {} : { minHeight: '100%' }),
-            ...(zoomLevel > 1 && imageNaturalWidth > 0 ? {
-              width: `${Math.ceil(imageNaturalWidth * zoomLevel)}px`
-            } : {})
           }}
         >
           {isLoading && !imageError && (
@@ -374,7 +372,6 @@ export default function ImageViewer({
               onLoad={(e) => {
                 const img = e.currentTarget;
                 setIsLoading(false);
-                setImageNaturalWidth(img.naturalWidth);
                 const container = containerRef.current;
                 // Calculate zoom to fit entire page in viewport (only on first load)
                 if (!initialZoomSetRef.current) {
@@ -398,7 +395,7 @@ export default function ImageViewer({
                 setIsLoading(false);
               }}
               style={{
-                width: imageNaturalWidth > 0 ? `${Math.ceil(imageNaturalWidth * zoomLevel)}px` : `${zoomLevel * 100}%`,
+                width: '100%',
                 maxWidth: 'none'
               }}
             />
