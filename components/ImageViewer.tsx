@@ -135,35 +135,6 @@ export default function ImageViewer({
     // Don't reset zoom - keep the current zoom level when changing pages
   }, [currentPage]);
 
-  // Check if image is already loaded (e.g., from cache) after mount/hydration
-  // Also calculate fit zoom on desktop for cached images (only on first load)
-  useEffect(() => {
-    const img = imageRef.current;
-    const container = containerRef.current;
-    if (img && img.complete && img.naturalWidth > 0) {
-      setIsLoading(false);
-      // On desktop, calculate zoom to fit entire page in viewport (only on first load)
-      if (isDesktop && container && !initialZoomSetRef.current) {
-        const containerWidth = container.clientWidth - 32;
-        const bottomBarHeight = 64; // lg:pb-16 (64px) on desktop
-        const verticalPadding = 16; // Only bottom padding on desktop (lg:pt-0)
-        const containerHeight = container.clientHeight - verticalPadding - bottomBarHeight;
-        const zoomToFitWidth = containerWidth / img.naturalWidth;
-        const zoomToFitHeight = containerHeight / img.naturalHeight;
-        const fitZoom = Math.min(zoomToFitWidth, zoomToFitHeight);
-        setZoomLevel(Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM)));
-        initialZoomSetRef.current = true;
-        // Scroll to top so image sits against header
-        container.scrollTop = 0;
-      }
-      // Restore scroll position for cached images (for page changes)
-      else if (container && savedScrollRef.current) {
-        container.scrollTop = savedScrollRef.current.top;
-        container.scrollLeft = savedScrollRef.current.left;
-      }
-    }
-  }, [isDesktop, currentPage]);
-
   // Zoom functions
   const zoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM));
@@ -177,19 +148,16 @@ export default function ImageViewer({
     setZoomLevel(1);
   }, []);
 
-  // Calculate zoom level to fit entire image in viewport on desktop
+  // Calculate zoom level to fit entire image in viewport
   const calculateFitZoom = useCallback(() => {
     const container = containerRef.current;
     const image = imageRef.current;
     if (!container || !image || !image.naturalWidth || !image.naturalHeight) return 1;
 
-    // Get container dimensions (account for padding and bottom control bar)
-    const containerWidth = container.clientWidth - 32; // p-4 = 16px * 2
+    // Get container dimensions (account for bottom control bar overlay)
+    const containerWidth = container.clientWidth;
     const bottomBarHeight = isDesktop ? 64 : 160; // lg:pb-16 (64px) vs pb-40 (160px)
-    // On desktop, only bottom padding (pb-4 = 16px), no top padding (lg:pt-0)
-    // On mobile, both top and bottom padding (pt-4 + pb-4 = 32px)
-    const verticalPadding = isDesktop ? 16 : 32;
-    const containerHeight = container.clientHeight - verticalPadding - bottomBarHeight;
+    const containerHeight = container.clientHeight - bottomBarHeight;
 
     // Calculate zoom to fit width and height
     const zoomToFitWidth = containerWidth / image.naturalWidth;
@@ -201,6 +169,30 @@ export default function ImageViewer({
     // Clamp to valid zoom range
     return Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM));
   }, [isDesktop]);
+
+  // Check if image is already loaded (e.g., from cache) after mount/hydration
+  // Also calculate fit zoom for cached images (only on first load)
+  useEffect(() => {
+    const img = imageRef.current;
+    const container = containerRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setIsLoading(false);
+      // Calculate zoom to fit entire page in viewport (only on first load)
+      if (container && !initialZoomSetRef.current) {
+        const fitZoom = calculateFitZoom();
+        setZoomLevel(fitZoom);
+        initialZoomSetRef.current = true;
+        // Scroll to top so image sits flush against header
+        container.scrollTop = 0;
+        container.scrollLeft = 0;
+      }
+      // Restore scroll position for cached images (for page changes)
+      else if (container && savedScrollRef.current) {
+        container.scrollTop = savedScrollRef.current.top;
+        container.scrollLeft = savedScrollRef.current.left;
+      }
+    }
+  }, [isDesktop, currentPage, calculateFitZoom]);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
   useEffect(() => {
@@ -339,13 +331,11 @@ export default function ImageViewer({
         }}
       >
         <div
-          className={`pb-4 pt-4 lg:pt-0 ${zoomLevel <= 1 ? 'flex justify-center items-start px-4' : ''}`}
+          className={`${zoomLevel <= 1 ? 'flex justify-center items-start' : ''}`}
           style={{
             ...(isDesktop ? {} : { minHeight: '100%' }),
             ...(zoomLevel > 1 && imageNaturalWidth > 0 ? {
-              width: `${Math.ceil(imageNaturalWidth * zoomLevel) + 32}px`,
-              paddingLeft: '16px',
-              paddingRight: '16px'
+              width: `${Math.ceil(imageNaturalWidth * zoomLevel)}px`
             } : {})
           }}
         >
@@ -378,7 +368,7 @@ export default function ImageViewer({
               ref={imageRef}
               src={currentImageUrl}
               alt={`Page ${formatDisplayPageNumber(currentPage, pageOffset)} of ${totalPages}`}
-              className={`h-auto shadow-lg transition-all duration-100 ${
+              className={`h-auto transition-all duration-100 ${
                 isLoading ? 'opacity-0' : 'opacity-100'
               }`}
               onLoad={(e) => {
@@ -386,14 +376,15 @@ export default function ImageViewer({
                 setIsLoading(false);
                 setImageNaturalWidth(img.naturalWidth);
                 const container = containerRef.current;
-                // On desktop, calculate zoom to fit entire page in viewport (only on first load)
-                if (isDesktop && !initialZoomSetRef.current) {
+                // Calculate zoom to fit entire page in viewport (only on first load)
+                if (!initialZoomSetRef.current) {
                   const fitZoom = calculateFitZoom();
                   setZoomLevel(fitZoom);
                   initialZoomSetRef.current = true;
-                  // Scroll to top so image sits against header
+                  // Scroll to top so image sits flush against header
                   if (container) {
                     container.scrollTop = 0;
+                    container.scrollLeft = 0;
                   }
                 }
                 // Restore scroll position after image loads (for page changes)
