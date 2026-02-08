@@ -41,7 +41,7 @@ const sections: Section[] = [
     subsections: [
       {
         title: "First Studies",
-        page: 11`,
+        page: 11,
         subsections:[
           {title:"#1 --> #6", page:11},
           {title:"#7 -->#9", page:12},
@@ -150,18 +150,96 @@ const sections: Section[] = [
 ];
 
 export default function TableOfContents({ onPageSelect, currentPage }: TableOfContentsProps) {
-  // Track which sections are expanded (by index) - all collapsed by default
-  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
+  // Track which sections are expanded by key (e.g. "0", "0-1", "0-1-2" for nested)
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
-  const toggleSection = (index: number) => {
-    setExpandedSections(prev => {
-      // If clicking the already-open section, close it
-      if (prev.has(index)) {
-        return new Set();
+  const toggleSection = (key: string, depth: number) => {
+    setExpandedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        // Collapse this section and all children
+        for (const k of prev) {
+          if (k === key || k.startsWith(key + '-')) {
+            next.delete(k);
+          }
+        }
+      } else {
+        // Accordion at top level: close other top-level sections
+        if (depth === 0) {
+          for (const k of prev) {
+            next.delete(k);
+          }
+        }
+        next.add(key);
       }
-      // Otherwise, close all others and open only this one (accordion behavior)
-      return new Set([index]);
+      return next;
     });
+  };
+
+  const renderSection = (section: Section, key: string, depth: number) => {
+    const isExpanded = expandedKeys.has(key);
+    const hasSubsections = section.subsections && section.subsections.length > 0;
+    const textSize = depth === 0 ? 'text-sm' : 'text-xs';
+    const py = depth === 0 ? 'py-2' : 'py-1.5';
+    const textColor = depth === 0
+      ? 'text-gray-700 dark:text-gray-300'
+      : 'text-gray-600 dark:text-gray-400';
+
+    return (
+      <div key={key}>
+        <div className="flex items-center">
+          {/* Expand/collapse toggle */}
+          {hasSubsections ? (
+            <button
+              onClick={() => toggleSection(key, depth)}
+              className="p-1 mr-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 active:bg-blue-200 dark:active:bg-gray-600 rounded transition flex-shrink-0"
+              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <svg
+                className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <span className="w-6 flex-shrink-0" /> // Spacer for alignment
+          )}
+
+          {/* Section button */}
+          <button
+            onClick={() => hasSubsections ? toggleSection(key, depth) : onPageSelect(section.page)}
+            className={`flex-1 text-left px-3 ${py} rounded hover:bg-blue-50 dark:hover:bg-gray-800 active:bg-blue-200 dark:active:bg-gray-600 transition ${
+              currentPage === section.page
+                ? 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-300 font-semibold'
+                : textColor
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <span className={textSize}>{section.title}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                p.{formatDisplayPageNumber(section.page, appConfig.pageOffset)}
+              </span>
+            </div>
+          </button>
+        </div>
+
+        {/* Subsections - collapsible */}
+        {hasSubsections && (
+          <div
+            className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-200 ${
+              isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            {section.subsections!.map((subsection, subIndex) =>
+              renderSection(subsection, `${key}-${subIndex}`, depth + 1)
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -171,81 +249,9 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
           Table of Contents
         </h2>
         <div className="space-y-1">
-          {sections.map((section, index) => {
-            const isExpanded = expandedSections.has(index);
-            const hasSubsections = section.subsections && section.subsections.length > 0;
-
-            return (
-              <div key={index}>
-                <div className="flex items-center">
-                  {/* Expand/collapse toggle */}
-                  {hasSubsections ? (
-                    <button
-                      onClick={() => toggleSection(index)}
-                      className="p-1 mr-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 active:bg-blue-200 dark:active:bg-gray-600 rounded transition"
-                      aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
-                    >
-                      <svg
-                        className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  ) : (
-                    <span className="w-6" /> // Spacer for alignment
-                  )}
-
-                  {/* Section button */}
-                  <button
-                    onClick={() => hasSubsections ? toggleSection(index) : onPageSelect(section.page)}
-                    className={`flex-1 text-left px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-800 active:bg-blue-200 dark:active:bg-gray-600 transition ${
-                      currentPage === section.page
-                        ? 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-300 font-semibold'
-                        : 'text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">{section.title}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        p.{formatDisplayPageNumber(section.page, appConfig.pageOffset)}
-                      </span>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Subsections - collapsible */}
-                {hasSubsections && (
-                  <div
-                    className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-200 ${
-                      isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                    }`}
-                  >
-                    {section.subsections!.map((subsection, subIndex) => (
-                      <button
-                        key={subIndex}
-                        onClick={() => onPageSelect(subsection.page)}
-                        className={`w-full text-left px-3 py-1.5 rounded hover:bg-blue-50 dark:hover:bg-gray-800 active:bg-blue-200 dark:active:bg-gray-600 transition ${
-                          currentPage === subsection.page
-                            ? 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-300 font-semibold'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs">{subsection.title}</span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            p.{formatDisplayPageNumber(subsection.page, appConfig.pageOffset)}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {sections.map((section, index) =>
+            renderSection(section, String(index), 0)
+          )}
         </div>
       </div>
     </div>
