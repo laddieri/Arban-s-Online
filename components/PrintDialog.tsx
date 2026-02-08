@@ -140,21 +140,14 @@ export default function PrintDialog({
               .page {
                 page-break-after: always;
                 page-break-inside: avoid;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                width: 100vw;
-                height: 100vh;
-                padding: 0;
-                margin: 0;
-                overflow: hidden;
               }
               .page:last-child {
                 page-break-after: auto;
               }
               .page img {
-                width: 100%;
-                height: 100%;
+                display: block;
+                width: 8.5in;
+                height: 11in;
                 object-fit: contain;
               }
             </style>
