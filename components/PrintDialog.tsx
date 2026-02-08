@@ -119,10 +119,6 @@ export default function PrintDialog({
           <head>
             <title>Arban's Method - Print</title>
             <style>
-              @page {
-                size: letter;
-                margin: 0;
-              }
               * {
                 margin: 0;
                 padding: 0;
