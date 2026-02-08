@@ -156,7 +156,7 @@ export default function PrintDialog({
             <style>
               @page {
                 size: letter;
-                margin: 0 !important;
+                margin: 0;
               }
               * {
                 margin: 0;
@@ -164,8 +164,6 @@ export default function PrintDialog({
                 box-sizing: border-box;
               }
               html, body {
-                width: 8.5in;
-                height: 11in;
                 margin: 0 !important;
                 padding: 0 !important;
                 -webkit-print-color-adjust: exact;
@@ -180,8 +178,8 @@ export default function PrintDialog({
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                width: 8.5in;
-                height: 11in;
+                width: 100vw;
+                height: 100vh;
                 padding: 0;
                 margin: 0;
                 overflow: hidden;
@@ -191,26 +189,9 @@ export default function PrintDialog({
               }
               ${imageCss}
               @media print {
-                @page {
-                  size: letter;
-                  margin: 0 !important;
-                }
-                html, body {
-                  width: 8.5in;
-                  height: 11in;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
                 .page {
-                  page-break-after: always;
-                  page-break-inside: avoid;
-                  width: 8.5in;
-                  height: 11in;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-                .page:last-child {
-                  page-break-after: auto;
+                  width: 100vw;
+                  height: 100vh;
                 }
                 ${imageCss}
               }
