@@ -28,8 +28,6 @@ export default function PrintDialog({
   const [endPage, setEndPage] = useState(currentPage);
   const [selectedPages, setSelectedPages] = useState<number[]>([currentPage]);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [printScale, setPrintScale] = useState<'fit' | 'fill' | 'custom'>('fit');
-  const [customScale, setCustomScale] = useState(100);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -38,8 +36,6 @@ export default function PrintDialog({
       setStartPage(currentPage);
       setEndPage(currentPage);
       setSelectedPages([currentPage]);
-      setPrintScale('fit');
-      setCustomScale(100);
     }
   }, [isOpen, currentPage]);
 
@@ -90,35 +86,6 @@ export default function PrintDialog({
     });
   };
 
-  // Generate CSS for print image scaling based on selected scale mode
-  const getImageCss = () => {
-    switch (printScale) {
-      case 'fill':
-        return `
-              .page img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-              }`;
-      case 'custom':
-        return `
-              .page img {
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-                transform: scale(${customScale / 100});
-              }`;
-      case 'fit':
-      default:
-        return `
-              .page img {
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-              }`;
-    }
-  };
-
   // Handle print
   const handlePrint = async () => {
     const pages = getPagesToPrint();
@@ -134,8 +101,6 @@ export default function PrintDialog({
         setIsPrinting(false);
         return;
       }
-
-      const imageCss = getImageCss();
 
       // Build HTML content with images
       const imagesHtml = pages
@@ -187,13 +152,10 @@ export default function PrintDialog({
               .page:last-child {
                 page-break-after: auto;
               }
-              ${imageCss}
-              @media print {
-                .page {
-                  width: 100vw;
-                  height: 100vh;
-                }
-                ${imageCss}
+              .page img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
               }
             </style>
           </head>
@@ -368,84 +330,6 @@ export default function PrintDialog({
             </div>
           )}
 
-          {/* Print Scale Controls */}
-          <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Print Scale</h3>
-            <div className="space-y-3">
-              {/* Fit to Page */}
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="printScale"
-                  value="fit"
-                  checked={printScale === 'fit'}
-                  onChange={() => setPrintScale('fit')}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <div>
-                  <span className="text-gray-700 dark:text-gray-300">Fit to page</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Scale image to fit within the page</p>
-                </div>
-              </label>
-
-              {/* Fill Page */}
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="printScale"
-                  value="fill"
-                  checked={printScale === 'fill'}
-                  onChange={() => setPrintScale('fill')}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <div>
-                  <span className="text-gray-700 dark:text-gray-300">Fill page</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Scale image to fill the entire page (may crop edges)</p>
-                </div>
-              </label>
-
-              {/* Custom Scale */}
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="printScale"
-                  value="custom"
-                  checked={printScale === 'custom'}
-                  onChange={() => setPrintScale('custom')}
-                  className="w-4 h-4 text-blue-600 mt-1"
-                />
-                <div className="flex-1">
-                  <span className="text-gray-700 dark:text-gray-300">Custom scale</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Set a custom zoom percentage</p>
-                  {printScale === 'custom' && (
-                    <div className="flex items-center gap-3 mt-2">
-                      <input
-                        type="range"
-                        min={25}
-                        max={200}
-                        step={5}
-                        value={customScale}
-                        onChange={(e) => setCustomScale(parseInt(e.target.value))}
-                        className="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min={25}
-                          max={200}
-                          value={customScale}
-                          onChange={(e) => setCustomScale(Math.max(25, Math.min(200, parseInt(e.target.value) || 100)))}
-                          className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700 text-sm"
-                        />
-                        <span className="text-sm text-gray-500">%</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </label>
-            </div>
-          </div>
-
           {/* Summary */}
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -453,9 +337,6 @@ export default function PrintDialog({
                 ? `Page ${getPagesToPrint()[0]}`
                 : `${getPagesToPrint().length} pages (${getPagesToPrint()[0]} - ${getPagesToPrint()[getPagesToPrint().length - 1]})`
               }
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Scale: {printScale === 'fit' ? 'Fit to page' : printScale === 'fill' ? 'Fill page' : `${customScale}%`}
             </p>
           </div>
         </div>
