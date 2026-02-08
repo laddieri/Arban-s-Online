@@ -39,6 +39,14 @@ const sections: Section[] = [
     title: "First Studies",
     page: 11,
     subsections: [
+      {
+        title: "First Studies",
+        page: 11`,
+        subsections:[
+          {title:"#1 --> #6", page:11},
+          {title:"#7 -->#9", page:12},
+        ],
+      },
       { title: "The Study of Syncopation", page: 23 },
       { title: "Studies on Dotted Eighth Notes", page: 26 },
       { title: "Studies of the Slur, Explanation", page: 37 },
@@ -70,30 +78,22 @@ const sections: Section[] = [
     ],
   },
   {
-    title: "Intervals",
+    title: "More Advanced Studies",
     page: 123,
     subsections: [
       { title: "Studies on the Intervals", page: 125 },
       { title: "Octaves and Tenths", page: 131 },
-    ],
-  },
-  {
-    title: "Rhythm and Chord Exercises",
-    page: 123,
-    subsections: [
       { title: "Exercises on Triplets", page: 132 },
       { title: "Octaves and Tenths", page: 131 },
       { title: "Exercises on Sixteenth Notes", page: 137 },
       { title: "Major and Minor Chords", page: 142 },
       { title: "The Chord of the Dominant Seventh", page: 147 },
       { title: "The Chord of the Diminished Seventh", page: 149 },
+      { title: "Cadenzas", page: 152 },
     ],
   },
-
-
-  { title: "Cadenzas", page: 152 },
   {
-    title: "Multiple Tonguing",
+    title: "Tonguing",
     page: 153,
     subsections: [
       { title: "Triple Tonguing", page: 155 },
