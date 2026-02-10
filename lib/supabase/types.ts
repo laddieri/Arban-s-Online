@@ -33,3 +33,15 @@ export interface ApprovedVideo {
   performer?: string;
   description?: string;
 }
+
+export interface UserFavorite {
+  id: string;
+  user_id: string;
+  page_number: number;
+  created_at: string;
+}
+
+export interface UserFavoriteInsert {
+  user_id: string;
+  page_number: number;
+}
