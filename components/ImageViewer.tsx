@@ -4,8 +4,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import PrintDialog from './PrintDialog';
 import MetronomeOverlay from './MetronomeOverlay';
 import YouTubeVideosOverlay from './YouTubeVideosOverlay';
+import VideoSubmissionForm from './VideoSubmissionForm';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
-import { getVideosForPage, hasVideos } from '@/config/exerciseVideos';
+import { ExerciseVideo } from '@/config/exerciseVideos';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -44,6 +45,9 @@ export default function ImageViewer({
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
+  const [isSubmitFormOpen, setIsSubmitFormOpen] = useState(false);
+  const [videos, setVideos] = useState<ExerciseVideo[]>([]);
+  const [videosLoading, setVideosLoading] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
@@ -136,6 +140,44 @@ export default function ImageViewer({
     setIsLoading(true);
     setImageError(false);
     // Don't reset zoom - keep the current zoom level when changing pages
+  }, [currentPage]);
+
+  // Fetch videos for current page from API
+  useEffect(() => {
+    const fetchVideos = async () => {
+      setVideosLoading(true);
+      try {
+        const response = await fetch(`/api/videos/${currentPage}`);
+        if (response.ok) {
+          const data = await response.json();
+          setVideos(data.videos || []);
+        } else {
+          setVideos([]);
+        }
+      } catch (error) {
+        console.error('Error fetching videos:', error);
+        setVideos([]);
+      } finally {
+        setVideosLoading(false);
+      }
+    };
+
+    fetchVideos();
+  }, [currentPage]);
+
+  const refreshVideos = useCallback(async () => {
+    setVideosLoading(true);
+    try {
+      const response = await fetch(`/api/videos/${currentPage}`);
+      if (response.ok) {
+        const data = await response.json();
+        setVideos(data.videos || []);
+      }
+    } catch (error) {
+      console.error('Error refreshing videos:', error);
+    } finally {
+      setVideosLoading(false);
+    }
   }, [currentPage]);
 
   // Zoom functions
@@ -491,19 +533,28 @@ export default function ImageViewer({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </button>
-            {hasVideos(currentPage) && (
+            {videos.length > 0 && (
               <button
                 onClick={() => setIsVideosOpen(!isVideosOpen)}
                 className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
                   isVideosOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 dark:bg-gray-700'
                 }`}
-                title={isVideosOpen ? "Close exercise videos" : "Open exercise videos"}
+                title={isVideosOpen ? "Close exercise videos" : `View ${videos.length} video${videos.length > 1 ? 's' : ''}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                 </svg>
               </button>
             )}
+            <button
+              onClick={() => setIsSubmitFormOpen(true)}
+              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition"
+              title="Submit a video for this page"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
@@ -587,8 +638,17 @@ export default function ImageViewer({
       <YouTubeVideosOverlay
         isOpen={isVideosOpen}
         onClose={() => setIsVideosOpen(false)}
-        videos={getVideosForPage(currentPage)}
+        videos={videos}
       />
+
+      {/* Video Submission Form */}
+      {isSubmitFormOpen && (
+        <VideoSubmissionForm
+          currentPage={currentPage}
+          onClose={() => setIsSubmitFormOpen(false)}
+          onSuccess={refreshVideos}
+        />
+      )}
     </div>
   );
 }
