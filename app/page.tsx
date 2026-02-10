@@ -23,6 +23,21 @@ export default function Home() {
   const toggleFullscreen = useCallback(async () => {
     if (!mainContainerRef.current) return;
 
+    // Check if we're on iOS/mobile Safari (fullscreen API not supported)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isMobile = window.innerWidth < 1024;
+
+    // For iOS or mobile Safari, use pseudo-fullscreen (hide UI elements)
+    if (isIOS || (isSafari && isMobile)) {
+      setIsFullscreen(!isFullscreen);
+      if (!isFullscreen) {
+        setSidebarOpen(false);
+      }
+      return;
+    }
+
+    // For desktop browsers, use real fullscreen API
     try {
       if (!document.fullscreenElement) {
         await mainContainerRef.current.requestFullscreen();
@@ -31,13 +46,26 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
+      // Fallback to pseudo-fullscreen if API fails
+      setIsFullscreen(!isFullscreen);
+      if (!isFullscreen) {
+        setSidebarOpen(false);
+      }
     }
-  }, []);
+  }, [isFullscreen]);
 
   // Listen for fullscreen changes (e.g., user presses Escape)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      // Only update state if we're actually using the fullscreen API
+      // (not on iOS/mobile Safari where we use pseudo-fullscreen)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isMobile = window.innerWidth < 1024;
+
+      if (!isIOS && !(isSafari && isMobile)) {
+        setIsFullscreen(!!document.fullscreenElement);
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
