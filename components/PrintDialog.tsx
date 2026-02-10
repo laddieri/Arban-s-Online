@@ -124,27 +124,57 @@ export default function PrintDialog({
                 padding: 0;
                 box-sizing: border-box;
               }
+
+              @page {
+                size: letter portrait;
+                margin: 0;
+              }
+
               html, body {
                 margin: 0 !important;
                 padding: 0 !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
               }
+
               body {
                 background: white;
               }
+
               .page {
                 page-break-after: always;
                 page-break-inside: avoid;
+                width: 8in;
+                height: 10.5in;
+                margin: 0.25in auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: white;
               }
+
               .page:last-child {
                 page-break-after: auto;
               }
+
               .page img {
                 display: block;
-                width: 8.5in;
-                height: 11in;
+                width: 100%;
+                height: 100%;
                 object-fit: contain;
+              }
+
+              @media print {
+                @page {
+                  size: letter portrait;
+                  margin: 0.25in;
+                }
+
+                .page {
+                  width: 8in;
+                  height: 10.5in;
+                  margin: 0 auto;
+                }
               }
             </style>
           </head>
