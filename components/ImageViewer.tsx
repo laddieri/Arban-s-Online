@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 import PrintDialog from './PrintDialog';
 import MetronomeOverlay from './MetronomeOverlay';
 import YouTubeVideosOverlay from './YouTubeVideosOverlay';
@@ -51,6 +53,7 @@ export default function ImageViewer({
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -65,6 +68,25 @@ export default function ImageViewer({
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Check authentication status
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Get initial user
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Track mouse position for edge navigation buttons (desktop only)
@@ -546,15 +568,17 @@ export default function ImageViewer({
                 </svg>
               </button>
             )}
-            <button
-              onClick={() => setIsSubmitFormOpen(true)}
-              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition"
-              title="Submit a video for this page"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
+            {user && (
+              <button
+                onClick={() => setIsSubmitFormOpen(true)}
+                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition"
+                title="Submit a video for this page"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            )}
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
