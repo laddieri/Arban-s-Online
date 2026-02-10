@@ -144,9 +144,9 @@ export default function PrintDialog({
               .page {
                 page-break-after: always;
                 page-break-inside: avoid;
-                width: 8in;
-                height: 10.5in;
-                margin: 0.25in auto;
+                width: 8.25in;
+                height: 10.75in;
+                margin: 0.125in auto;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -167,12 +167,12 @@ export default function PrintDialog({
               @media print {
                 @page {
                   size: letter portrait;
-                  margin: 0.25in;
+                  margin: 0.125in;
                 }
 
                 .page {
-                  width: 8in;
-                  height: 10.5in;
+                  width: 8.25in;
+                  height: 10.75in;
                   margin: 0 auto;
                 }
               }
