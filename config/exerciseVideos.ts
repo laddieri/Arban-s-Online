@@ -60,6 +60,16 @@ export const exerciseVideos: Record<number, ExerciseVideo[]> = {
     }
   ],
 
+  // Page 285
+  285: [
+    {
+      videoId: "PgGyqddyFK0",
+      title: "Arban's Method - Page 285",
+      performer: "YouTube User",
+      description: "Performance of exercise on page 285"
+    }
+  ],
+
   // To add more videos:
   // 1. Find the page number where the exercise appears
   // 2. Get the YouTube video ID (the part after ?v= in the URL)
