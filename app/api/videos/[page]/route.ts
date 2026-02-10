@@ -6,6 +6,14 @@ export async function GET(
   { params }: { params: Promise<{ page: string }> }
 ) {
   try {
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json(
+        { videos: [], message: 'Video submission system not configured' },
+        { status: 200 }
+      );
+    }
+
     const { page } = await params;
     const pageNumber = parseInt(page, 10);
 
