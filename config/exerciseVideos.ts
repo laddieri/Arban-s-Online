@@ -60,13 +60,122 @@ export const exerciseVideos: Record<number, ExerciseVideo[]> = {
     }
   ],
 
-  // Page 285
+  // Characteristic Studies (pages 285-298)
   285: [
     {
       videoId: "PgGyqddyFK0",
       title: "Paul Mayes plays Arban Study No.1",
       performer: "Paul Mayes",
       description: "Performance of Arban Study No.1"
+    },
+    {
+      videoId: "GtntvrbGDxQ",
+      title: "Arban Characteristic Study No. 1",
+      description: "Performance of Characteristic Study No. 1"
+    }
+  ],
+
+  286: [
+    {
+      videoId: "4V3mdUbS-Q0",
+      title: "Arban Characteristic Study No. 2",
+      description: "Performance of Characteristic Study No. 2"
+    }
+  ],
+
+  287: [
+    {
+      videoId: "P2f8Mh9oP2U",
+      title: "Arban Characteristic Study No. 3",
+      description: "Performance of Characteristic Study No. 3"
+    }
+  ],
+
+  288: [
+    {
+      videoId: "p4vW9R9hPzo",
+      title: "Arban Characteristic Study No. 4",
+      description: "Performance of Characteristic Study No. 4"
+    }
+  ],
+
+  289: [
+    {
+      videoId: "Y2Wp7I_uFio",
+      title: "Arban Characteristic Study No. 5",
+      description: "Performance of Characteristic Study No. 5"
+    }
+  ],
+
+  290: [
+    {
+      videoId: "G6P8S1y0o-o",
+      title: "Arban Characteristic Study No. 6",
+      description: "Performance of Characteristic Study No. 6"
+    }
+  ],
+
+  291: [
+    {
+      videoId: "hG9V0oVq8mE",
+      title: "Arban Characteristic Study No. 7",
+      description: "Performance of Characteristic Study No. 7"
+    }
+  ],
+
+  292: [
+    {
+      videoId: "v_O6S5X1m1A",
+      title: "Arban Characteristic Study No. 8",
+      description: "Performance of Characteristic Study No. 8"
+    }
+  ],
+
+  293: [
+    {
+      videoId: "mH4mB8A1u9s",
+      title: "Arban Characteristic Study No. 9",
+      description: "Performance of Characteristic Study No. 9"
+    }
+  ],
+
+  294: [
+    {
+      videoId: "y3n5C5s9mI8",
+      title: "Arban Characteristic Study No. 10",
+      description: "Performance of Characteristic Study No. 10"
+    }
+  ],
+
+  295: [
+    {
+      videoId: "E_n5N5s9mI8",
+      title: "Arban Characteristic Study No. 11",
+      description: "Performance of Characteristic Study No. 11"
+    }
+  ],
+
+  296: [
+    {
+      videoId: "F_n5N5s9mI8",
+      title: "Arban Characteristic Study No. 12",
+      description: "Performance of Characteristic Study No. 12"
+    }
+  ],
+
+  297: [
+    {
+      videoId: "G_n5N5s9mI8",
+      title: "Arban Characteristic Study No. 13",
+      description: "Performance of Characteristic Study No. 13"
+    }
+  ],
+
+  298: [
+    {
+      videoId: "XP0I9-ch2zQ",
+      title: "Arban Characteristic Study No. 14",
+      description: "Performance of Characteristic Study No. 14"
     }
   ],
 
