@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PrintDialog from './PrintDialog';
 import MetronomeOverlay from './MetronomeOverlay';
+import YouTubeVideosOverlay from './YouTubeVideosOverlay';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
+import { getVideosForPage, hasVideos } from '@/config/exerciseVideos';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -41,6 +43,7 @@ export default function ImageViewer({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
+  const [isVideosOpen, setIsVideosOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
@@ -488,6 +491,19 @@ export default function ImageViewer({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </button>
+            {hasVideos(currentPage) && (
+              <button
+                onClick={() => setIsVideosOpen(!isVideosOpen)}
+                className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
+                  isVideosOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+                title={isVideosOpen ? "Close exercise videos" : "Open exercise videos"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                </svg>
+              </button>
+            )}
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
@@ -565,6 +581,13 @@ export default function ImageViewer({
       <MetronomeOverlay
         isOpen={isMetronomeOpen}
         onClose={() => setIsMetronomeOpen(false)}
+      />
+
+      {/* YouTube Videos Overlay */}
+      <YouTubeVideosOverlay
+        isOpen={isVideosOpen}
+        onClose={() => setIsVideosOpen(false)}
+        videos={getVideosForPage(currentPage)}
       />
     </div>
   );
