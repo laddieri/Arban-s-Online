@@ -64,9 +64,9 @@ export const exerciseVideos: Record<number, ExerciseVideo[]> = {
   285: [
     {
       videoId: "PgGyqddyFK0",
-      title: "Arban's Method - Page 285",
-      performer: "YouTube User",
-      description: "Performance of exercise on page 285"
+      title: "Paul Mayes plays Arban Study No.1",
+      performer: "Paul Mayes",
+      description: "Performance of Arban Study No.1"
     }
   ],
 
