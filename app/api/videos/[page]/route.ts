@@ -41,7 +41,15 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ videos: data || [] });
+    // Map database field names to ExerciseVideo interface
+    const videos = (data || []).map((row: { video_id: string; title: string; performer?: string; description?: string }) => ({
+      videoId: row.video_id,
+      title: row.title,
+      performer: row.performer,
+      description: row.description,
+    }));
+
+    return NextResponse.json({ videos });
   } catch (error) {
     console.error('Error fetching videos:', error);
     return NextResponse.json(
