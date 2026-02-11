@@ -14,6 +14,10 @@ const MIN_HEIGHT = 300;
 const DEFAULT_WIDTH = 560;
 const DEFAULT_HEIGHT = 420;
 
+// Mobile-friendly minimum sizes
+const MOBILE_MIN_WIDTH = 280;
+const MOBILE_MIN_HEIGHT = 250;
+
 export default function YouTubeVideosOverlay({
   isOpen,
   onClose,
@@ -25,9 +29,36 @@ export default function YouTubeVideosOverlay({
   const [isResizing, setIsResizing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Initialize with responsive sizing for mobile
+  useEffect(() => {
+    if (!isInitialized && typeof window !== 'undefined') {
+      const isMobile = window.innerWidth < 768;
+
+      if (isMobile) {
+        // On mobile, use 90% of viewport width/height with some padding
+        const mobileWidth = Math.min(window.innerWidth - 20, DEFAULT_WIDTH);
+        const mobileHeight = Math.min(window.innerHeight - 100, DEFAULT_HEIGHT);
+
+        setSize({
+          width: Math.max(MOBILE_MIN_WIDTH, mobileWidth),
+          height: Math.max(MOBILE_MIN_HEIGHT, mobileHeight),
+        });
+
+        // Center on mobile
+        setPosition({
+          x: Math.max(10, (window.innerWidth - mobileWidth) / 2),
+          y: Math.max(10, (window.innerHeight - mobileHeight) / 2),
+        });
+      }
+
+      setIsInitialized(true);
+    }
+  }, [isInitialized]);
 
   // Reset to first video when videos change
   useEffect(() => {
@@ -84,8 +115,13 @@ export default function YouTubeVideosOverlay({
       const maxWidth = window.innerWidth - position.x;
       const maxHeight = window.innerHeight - position.y;
 
-      const newWidth = Math.max(MIN_WIDTH, Math.min(maxWidth, resizeStart.current.width + deltaX));
-      const newHeight = Math.max(MIN_HEIGHT, Math.min(maxHeight, resizeStart.current.height + deltaY));
+      // Use mobile-friendly minimums on small screens
+      const isMobile = window.innerWidth < 768;
+      const minWidth = isMobile ? MOBILE_MIN_WIDTH : MIN_WIDTH;
+      const minHeight = isMobile ? MOBILE_MIN_HEIGHT : MIN_HEIGHT;
+
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStart.current.width + deltaX));
+      const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeStart.current.height + deltaY));
 
       setSize({
         width: newWidth,
