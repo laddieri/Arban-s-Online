@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Arban's Online</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 50px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            color: #ffffff;
+            margin: 0 0 10px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0;
+            font-size: 18px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .content h2 {
+            color: #333333;
+            font-size: 24px;
+            margin: 0 0 20px;
+            font-weight: 600;
+        }
+        .content p {
+            color: #666666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0 0 20px;
+        }
+        .features {
+            margin: 30px 0;
+        }
+        .feature-item {
+            display: flex;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+        }
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .feature-text h3 {
+            color: #333333;
+            font-size: 16px;
+            margin: 0 0 5px;
+            font-weight: 600;
+        }
+        .feature-text p {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 0;
+            line-height: 1.5;
+        }
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .tips-section {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 4px;
+        }
+        .tips-section h3 {
+            color: #1e40af;
+            font-size: 18px;
+            margin: 0 0 15px;
+            font-weight: 600;
+        }
+        .tips-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .tips-section li {
+            color: #1e3a8a;
+            font-size: 15px;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        .footer {
+            padding: 30px;
+            text-align: center;
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p {
+            color: #9ca3af;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .social-links {
+            margin: 20px 0;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 26px;
+            }
+            .header p {
+                font-size: 16px;
+            }
+            .feature-item {
+                display: block;
+            }
+            .feature-icon {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎺 Welcome to Arban's Online!</h1>
+            <p>Your journey to brass mastery begins here</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <h2>Hello {{ .Email }}! 👋</h2>
+            <p>We're thrilled to have you join our community of dedicated brass musicians! You've just taken the first step toward mastering your instrument with the most comprehensive brass technique exercises available online.</p>
+
+            <!-- Features Section -->
+            <div class="features">
+                <div class="feature-item">
+                    <div class="feature-icon">📚</div>
+                    <div class="feature-text">
+                        <h3>Complete Arban Method</h3>
+                        <p>Access all exercises from the legendary Arban's Complete Conservatory Method, digitized and ready to practice.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">🎵</div>
+                    <div class="feature-text">
+                        <h3>Progress Tracking</h3>
+                        <p>Track your daily practice sessions and monitor your improvement over time.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">🎯</div>
+                    <div class="feature-text">
+                        <h3>Structured Learning</h3>
+                        <p>Follow a proven curriculum from fundamentals to advanced techniques.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Getting Started Tips -->
+            <div class="tips-section">
+                <h3>🚀 Getting Started Tips</h3>
+                <ul>
+                    <li>Start with the fundamentals section to warm up properly</li>
+                    <li>Practice consistently - even 15 minutes daily makes a difference</li>
+                    <li>Use a metronome and start slow to build accuracy</li>
+                    <li>Track your progress to stay motivated</li>
+                </ul>
+            </div>
+
+            <p>Ready to begin? Click the button below to access your exercises:</p>
+
+            <!-- CTA Button -->
+            <div class="button-container">
+                <a href="https://yourdomain.com" class="button">Start Practicing Now</a>
+            </div>
+
+            <p style="margin-top: 30px;">If you have any questions or need help getting started, just reply to this email. We're here to help!</p>
+
+            <p style="margin-top: 30px; font-weight: 600;">Happy practicing!<br>The Arban's Online Team</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Arban's Online</strong></p>
+            <p>Master your brass technique with comprehensive exercises</p>
+
+            <div class="social-links">
+                <a href="#">Help Center</a> •
+                <a href="#">Contact Support</a>
+            </div>
+
+            <p style="margin-top: 20px; font-size: 12px; color: #d1d5db;">
+                You're receiving this email because you signed up for Arban's Online.<br>
+                <a href="#" style="color: #9ca3af;">Unsubscribe</a> |
+                <a href="#" style="color: #9ca3af;">Email Preferences</a>
+            </p>
+
+            <p style="margin-top: 15px;">© 2026 Arban's Online. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
