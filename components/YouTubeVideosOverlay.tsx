@@ -38,23 +38,34 @@ export default function YouTubeVideosOverlay({
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      setPosition({
-        x: e.clientX - dragOffset.current.x,
-        y: e.clientY - dragOffset.current.y,
-      });
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      // Calculate new position with boundary checking
+      const maxX = window.innerWidth - (overlayRef.current?.offsetWidth || 0);
+      const maxY = window.innerHeight - (overlayRef.current?.offsetHeight || 0);
+
+      const newX = Math.max(0, Math.min(maxX, clientX - dragOffset.current.x));
+      const newY = Math.max(0, Math.min(maxY, clientY - dragOffset.current.y));
+
+      setPosition({ x: newX, y: newY });
     };
 
-    const handleMouseUp = () => {
+    const handleEnd = () => {
       setIsDragging(false);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove);
+    document.addEventListener('touchend', handleEnd);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
     };
   }, [isDragging]);
 
@@ -62,44 +73,67 @@ export default function YouTubeVideosOverlay({
   useEffect(() => {
     if (!isResizing) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - resizeStart.current.x;
-      const deltaY = e.clientY - resizeStart.current.y;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      const deltaX = clientX - resizeStart.current.x;
+      const deltaY = clientY - resizeStart.current.y;
+
+      // Calculate new size with boundary checking
+      const maxWidth = window.innerWidth - position.x;
+      const maxHeight = window.innerHeight - position.y;
+
+      const newWidth = Math.max(MIN_WIDTH, Math.min(maxWidth, resizeStart.current.width + deltaX));
+      const newHeight = Math.max(MIN_HEIGHT, Math.min(maxHeight, resizeStart.current.height + deltaY));
+
       setSize({
-        width: Math.max(MIN_WIDTH, resizeStart.current.width + deltaX),
-        height: Math.max(MIN_HEIGHT, resizeStart.current.height + deltaY),
+        width: newWidth,
+        height: newHeight,
       });
     };
 
-    const handleMouseUp = () => {
+    const handleEnd = () => {
       setIsResizing(false);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove);
+    document.addEventListener('touchend', handleEnd);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
     };
-  }, [isResizing]);
+  }, [isResizing, position]);
 
-  const handleDragMouseDown = (e: React.MouseEvent) => {
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
     setIsDragging(true);
     dragOffset.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
+      x: clientX - position.x,
+      y: clientY - position.y,
     };
   };
 
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
+  const handleResizeStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
     setIsResizing(true);
     resizeStart.current = {
-      x: e.clientX,
-      y: e.clientY,
+      x: clientX,
+      y: clientY,
       width: size.width,
       height: size.height,
     };
@@ -132,7 +166,8 @@ export default function YouTubeVideosOverlay({
       {/* Header / Drag handle */}
       <div
         className="flex items-center justify-between px-3 py-2 bg-red-600 text-white cursor-move select-none"
-        onMouseDown={handleDragMouseDown}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
       >
         <span className="text-sm font-medium flex items-center gap-2">
           <svg
@@ -276,13 +311,14 @@ export default function YouTubeVideosOverlay({
             </div>
           </div>
 
-          {/* Resize handle */}
+          {/* Resize handle - larger touch target for mobile */}
           <div
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-            onMouseDown={handleResizeMouseDown}
+            className="absolute bottom-0 right-0 w-12 h-12 cursor-se-resize flex items-end justify-end p-1 touch-none"
+            onMouseDown={handleResizeStart}
+            onTouchStart={handleResizeStart}
           >
             <svg
-              className="w-4 h-4 text-gray-400 dark:text-gray-500"
+              className="w-6 h-6 text-gray-400 dark:text-gray-500 opacity-70 hover:opacity-100 transition-opacity"
               viewBox="0 0 24 24"
               fill="currentColor"
             >
