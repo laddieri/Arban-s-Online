@@ -16,7 +16,7 @@ const DEFAULT_HEIGHT = 420;
 
 // Mobile-friendly minimum sizes
 const MOBILE_MIN_WIDTH = 280;
-const MOBILE_MIN_HEIGHT = 250;
+const MOBILE_MIN_HEIGHT = 200;
 
 export default function YouTubeVideosOverlay({
   isOpen,
@@ -40,19 +40,20 @@ export default function YouTubeVideosOverlay({
       const isMobile = window.innerWidth < 768;
 
       if (isMobile) {
-        // On mobile, use 90% of viewport width/height with some padding
+        // On mobile, use viewport with conservative padding for browser chrome/toolbars
         const mobileWidth = Math.min(window.innerWidth - 20, DEFAULT_WIDTH);
-        const mobileHeight = Math.min(window.innerHeight - 100, DEFAULT_HEIGHT);
+        // Account for mobile browser bars (top ~60-100px, bottom ~50px) plus safety margin
+        const mobileHeight = Math.min(window.innerHeight - 180, DEFAULT_HEIGHT);
 
         setSize({
           width: Math.max(MOBILE_MIN_WIDTH, mobileWidth),
           height: Math.max(MOBILE_MIN_HEIGHT, mobileHeight),
         });
 
-        // Center on mobile
+        // Center on mobile with top offset to avoid URL bar
         setPosition({
           x: Math.max(10, (window.innerWidth - mobileWidth) / 2),
-          y: Math.max(10, (window.innerHeight - mobileHeight) / 2),
+          y: Math.max(20, (window.innerHeight - mobileHeight) / 2),
         });
       }
 
@@ -329,7 +330,7 @@ export default function YouTubeVideosOverlay({
               )}
 
               {/* Video metadata */}
-              <div className="px-3 py-2 max-h-24 overflow-y-auto">
+              <div className="px-3 py-2 max-h-16 sm:max-h-24 overflow-y-auto">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
                   {currentVideo.title}
                 </h3>
