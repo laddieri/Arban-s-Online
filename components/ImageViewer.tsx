@@ -8,7 +8,7 @@ import MetronomeOverlay from './MetronomeOverlay';
 import YouTubeVideosOverlay from './YouTubeVideosOverlay';
 import VideoSubmissionForm from './VideoSubmissionForm';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
-import { ExerciseVideo } from '@/config/exerciseVideos';
+import { ExerciseVideo, getVideosForPage } from '@/config/exerciseVideos';
 
 interface ImageViewerProps {
   baseUrl: string;
@@ -166,21 +166,26 @@ export default function ImageViewer({
     // Don't reset zoom - keep the current zoom level when changing pages
   }, [currentPage]);
 
-  // Fetch videos for current page from API
+  // Fetch videos for current page from API and merge with config videos
   useEffect(() => {
     const fetchVideos = async () => {
       setVideosLoading(true);
+      const configVideos = getVideosForPage(currentPage);
       try {
         const response = await fetch(`/api/videos/${currentPage}`);
         if (response.ok) {
           const data = await response.json();
-          setVideos(data.videos || []);
+          const apiVideos: ExerciseVideo[] = data.videos || [];
+          // Merge config videos with API videos, avoiding duplicates by videoId
+          const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
+          const uniqueConfigVideos = configVideos.filter(v => !apiVideoIds.has(v.videoId));
+          setVideos([...uniqueConfigVideos, ...apiVideos]);
         } else {
-          setVideos([]);
+          setVideos(configVideos);
         }
       } catch (error) {
         console.error('Error fetching videos:', error);
-        setVideos([]);
+        setVideos(configVideos);
       } finally {
         setVideosLoading(false);
       }
@@ -191,11 +196,15 @@ export default function ImageViewer({
 
   const refreshVideos = useCallback(async () => {
     setVideosLoading(true);
+    const configVideos = getVideosForPage(currentPage);
     try {
       const response = await fetch(`/api/videos/${currentPage}`);
       if (response.ok) {
         const data = await response.json();
-        setVideos(data.videos || []);
+        const apiVideos: ExerciseVideo[] = data.videos || [];
+        const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
+        const uniqueConfigVideos = configVideos.filter(v => !apiVideoIds.has(v.videoId));
+        setVideos([...uniqueConfigVideos, ...apiVideos]);
       }
     } catch (error) {
       console.error('Error refreshing videos:', error);
