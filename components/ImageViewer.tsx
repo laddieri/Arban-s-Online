@@ -258,8 +258,8 @@ export default function ImageViewer({
       setIsLoading(false);
       // Calculate zoom to fit entire page in viewport (only on first load)
       if (container && !initialZoomSetRef.current) {
-        const fitZoom = calculateFitZoom();
-        setZoomLevel(fitZoom);
+        // Keep initial zoom at 60% instead of calculating fit
+        setZoomLevel(0.6);
         initialZoomSetRef.current = true;
         // Scroll down slightly from the top (simulate one scroll wheel click)
         container.scrollTop = 100;
@@ -454,8 +454,8 @@ export default function ImageViewer({
                 const container = containerRef.current;
                 // Calculate zoom to fit entire page in viewport (only on first load)
                 if (!initialZoomSetRef.current) {
-                  const fitZoom = calculateFitZoom();
-                  setZoomLevel(fitZoom);
+                  // Keep initial zoom at 60% instead of calculating fit
+                  setZoomLevel(0.6);
                   initialZoomSetRef.current = true;
                   // Scroll down slightly from the top (simulate one scroll wheel click)
                   if (container) {
