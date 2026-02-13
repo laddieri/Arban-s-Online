@@ -30,6 +30,14 @@ export default function PrintDialog({
   const [endPage, setEndPage] = useState(currentPage);
   const [selectedPages, setSelectedPages] = useState<number[]>([currentPage]);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [printScale, setPrintScale] = useState<'letter' | 'legal' | 'tabloid' | 'a3'>('letter');
+
+  const paperSizes: Record<string, { label: string; width: string; height: string; description: string }> = {
+    letter: { label: 'Letter (Default)', width: '8.5in', height: '11in', description: 'Standard US letter paper' },
+    legal: { label: 'Legal', width: '8.5in', height: '14in', description: 'Taller than letter, good for larger prints' },
+    tabloid: { label: 'Tabloid / Ledger', width: '11in', height: '17in', description: 'Double letter size, great for wall display' },
+    a3: { label: 'A3', width: '11.7in', height: '16.5in', description: 'International large format paper' },
+  };
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -110,6 +118,8 @@ export default function PrintDialog({
         return;
       }
 
+      const paper = paperSizes[printScale];
+
       // Build HTML content with images
       const imagesHtml = pages
         .map(
@@ -134,7 +144,7 @@ export default function PrintDialog({
               }
 
               @page {
-                size: letter portrait;
+                size: ${paper.width} ${paper.height} portrait;
                 margin: 0;
               }
 
@@ -152,8 +162,8 @@ export default function PrintDialog({
               .page {
                 page-break-after: always;
                 page-break-inside: avoid;
-                width: 8.25in;
-                height: 10.75in;
+                width: calc(${paper.width} - 0.25in);
+                height: calc(${paper.height} - 0.25in);
                 margin: 0.125in auto;
                 display: flex;
                 align-items: center;
@@ -174,13 +184,13 @@ export default function PrintDialog({
 
               @media print {
                 @page {
-                  size: letter portrait;
+                  size: ${paper.width} ${paper.height} portrait;
                   margin: 0.125in;
                 }
 
                 .page {
-                  width: 8.25in;
-                  height: 10.75in;
+                  width: calc(${paper.width} - 0.25in);
+                  height: calc(${paper.height} - 0.25in);
                   margin: 0 auto;
                 }
               }
@@ -357,6 +367,37 @@ export default function PrintDialog({
             </div>
           )}
 
+          {/* Paper size selection */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Paper Size
+            </label>
+            <div className="space-y-2">
+              {Object.entries(paperSizes).map(([key, size]) => (
+                <label key={key} className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paperSize"
+                    value={key}
+                    checked={printScale === key}
+                    onChange={() => setPrintScale(key as 'letter' | 'legal' | 'tabloid' | 'a3')}
+                    className="w-4 h-4 text-blue-600 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-gray-700 dark:text-gray-300 text-sm">{size.label}</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">({size.width} x {size.height})</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{size.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {printScale !== 'letter' && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Make sure your printer has the selected paper size loaded, or select &quot;Fit to page&quot; in your browser&apos;s print dialog.
+              </p>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -364,6 +405,9 @@ export default function PrintDialog({
                 ? `Page ${getPagesToPrint()[0]}`
                 : `${getPagesToPrint().length} pages (${getPagesToPrint()[0]} - ${getPagesToPrint()[getPagesToPrint().length - 1]})`
               }
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Paper: {paperSizes[printScale].label}
             </p>
           </div>
         </div>
