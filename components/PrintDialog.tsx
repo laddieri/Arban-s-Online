@@ -31,7 +31,7 @@ export default function PrintDialog({
   const [selectedPages, setSelectedPages] = useState<number[]>([currentPage]);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printScale, setPrintScale] = useState<'letter' | 'legal' | 'tabloid' | 'a3'>('letter');
-  const [printZoom, setPrintZoom] = useState(100);
+  const [printZoom, setPrintZoom] = useState(115);
 
   const paperSizes: Record<string, { label: string; width: string; height: string; description: string }> = {
     letter: { label: 'Letter (Default)', width: '8.5in', height: '11in', description: 'Standard US letter paper' },
@@ -376,25 +376,17 @@ export default function PrintDialog({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Paper Size
             </label>
-            <div className="space-y-2">
+            <select
+              value={printScale}
+              onChange={(e) => setPrintScale(e.target.value as 'letter' | 'legal' | 'tabloid' | 'a3')}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm cursor-pointer"
+            >
               {Object.entries(paperSizes).map(([key, size]) => (
-                <label key={key} className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="paperSize"
-                    value={key}
-                    checked={printScale === key}
-                    onChange={() => setPrintScale(key as 'letter' | 'legal' | 'tabloid' | 'a3')}
-                    className="w-4 h-4 text-blue-600 mt-0.5"
-                  />
-                  <div>
-                    <span className="text-gray-700 dark:text-gray-300 text-sm">{size.label}</span>
-                    <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">({size.width} x {size.height})</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{size.description}</p>
-                  </div>
-                </label>
+                <option key={key} value={key}>
+                  {size.label} ({size.width} x {size.height})
+                </option>
               ))}
-            </div>
+            </select>
             {printScale !== 'letter' && (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                 Make sure your printer has the selected paper size loaded, or select &quot;Fit to page&quot; in your browser&apos;s print dialog.
