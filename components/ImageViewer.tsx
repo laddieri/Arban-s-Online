@@ -261,8 +261,8 @@ export default function ImageViewer({
         const fitZoom = calculateFitZoom();
         setZoomLevel(fitZoom);
         initialZoomSetRef.current = true;
-        // Scroll to top so image sits flush against header
-        container.scrollTop = 0;
+        // Scroll down slightly from the top (simulate one scroll wheel click)
+        container.scrollTop = 100;
         container.scrollLeft = 0;
       }
       // Restore scroll position for cached images (for page changes)
@@ -457,9 +457,9 @@ export default function ImageViewer({
                   const fitZoom = calculateFitZoom();
                   setZoomLevel(fitZoom);
                   initialZoomSetRef.current = true;
-                  // Scroll to top so image sits flush against header
+                  // Scroll down slightly from the top (simulate one scroll wheel click)
                   if (container) {
-                    container.scrollTop = 0;
+                    container.scrollTop = 100;
                     container.scrollLeft = 0;
                   }
                 }

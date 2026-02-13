@@ -8,7 +8,7 @@ import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
 
 export default function Home() {
-  const [currentPage, setCurrentPage] = useState(-6); // Start one page forward from cover
+  const [currentPage, setCurrentPage] = useState(-7); // Start with cover page (Roman numeral i)
   const [sidebarOpen, setSidebarOpen] = useState(true); // Sidebar visible by default on desktop
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
