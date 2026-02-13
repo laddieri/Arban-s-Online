@@ -45,3 +45,44 @@ export interface UserFavoriteInsert {
   user_id: string;
   page_number: number;
 }
+
+export interface UserList {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserListInsert {
+  user_id: string;
+  name: string;
+}
+
+export interface UserListUpdate {
+  name?: string;
+  updated_at?: string;
+}
+
+export interface UserListItem {
+  id: string;
+  list_id: string;
+  page_number: number;
+  title?: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserListItemInsert {
+  list_id: string;
+  page_number: number;
+  title?: string;
+  description?: string;
+}
+
+export interface UserListItemUpdate {
+  title?: string;
+  description?: string;
+  updated_at?: string;
+}
