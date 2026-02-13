@@ -553,7 +553,7 @@ export default function ImageViewer({
           </button>
 
           {/* Zoom Controls */}
-          <div className="flex items-center justify-center gap-2 lg:gap-1 order-1 lg:order-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 lg:gap-1 order-1 lg:order-2">
             <button
               onClick={zoomOut}
               disabled={zoomLevel <= MIN_ZOOM}
