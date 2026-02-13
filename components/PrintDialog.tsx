@@ -31,6 +31,7 @@ export default function PrintDialog({
   const [selectedPages, setSelectedPages] = useState<number[]>([currentPage]);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printScale, setPrintScale] = useState<'letter' | 'legal' | 'tabloid' | 'a3'>('letter');
+  const [printZoom, setPrintZoom] = useState(100);
 
   const paperSizes: Record<string, { label: string; width: string; height: string; description: string }> = {
     letter: { label: 'Letter (Default)', width: '8.5in', height: '11in', description: 'Standard US letter paper' },
@@ -169,6 +170,7 @@ export default function PrintDialog({
                 align-items: center;
                 justify-content: center;
                 background: white;
+                overflow: hidden;
               }
 
               .page:last-child {
@@ -180,6 +182,8 @@ export default function PrintDialog({
                 width: 100%;
                 height: 100%;
                 object-fit: contain;
+                transform: scale(${printZoom / 100});
+                transform-origin: center center;
               }
 
               @media print {
@@ -398,6 +402,31 @@ export default function PrintDialog({
             )}
           </div>
 
+          {/* Print zoom */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Print Zoom: {printZoom}%
+            </label>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">100%</span>
+              <input
+                type="range"
+                min={100}
+                max={200}
+                step={5}
+                value={printZoom}
+                onChange={(e) => setPrintZoom(parseInt(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+              <span className="text-xs text-gray-500">200%</span>
+            </div>
+            {printZoom > 100 && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Zoom above 100% will enlarge the center of the page and crop the edges.
+              </p>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -408,6 +437,7 @@ export default function PrintDialog({
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Paper: {paperSizes[printScale].label}
+              {printZoom > 100 && ` at ${printZoom}% zoom`}
             </p>
           </div>
         </div>
