@@ -292,10 +292,10 @@ export default function YouTubeVideosOverlay({
             <div className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
               {/* Video navigation */}
               {videos.length > 1 && (
-                <div className="flex items-center justify-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                   <button
                     onClick={handlePreviousVideo}
-                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition flex-shrink-0"
                     title="Previous video"
                   >
                     <svg
@@ -308,12 +308,12 @@ export default function YouTubeVideosOverlay({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  <span className="text-sm text-gray-600 dark:text-gray-400 font-medium min-w-[60px] text-center">
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium min-w-[50px] sm:min-w-[60px] text-center flex-shrink-0">
                     {currentVideoIndex + 1} / {videos.length}
                   </span>
                   <button
                     onClick={handleNextVideo}
-                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition flex-shrink-0"
                     title="Next video"
                   >
                     <svg
@@ -330,17 +330,17 @@ export default function YouTubeVideosOverlay({
               )}
 
               {/* Video metadata */}
-              <div className="px-3 py-2 max-h-16 sm:max-h-24 overflow-y-auto">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              <div className="px-2 sm:px-3 py-2 max-h-16 sm:max-h-24 overflow-y-auto overflow-x-hidden">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1 break-words">
                   {currentVideo.title}
                 </h3>
                 {currentVideo.performer && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 break-words">
                     Performer: {currentVideo.performer}
                   </p>
                 )}
                 {currentVideo.description && (
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-500 break-words">
                     {currentVideo.description}
                   </p>
                 )}
