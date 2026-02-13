@@ -5,12 +5,17 @@ import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { UserList, UserListItem } from '@/lib/supabase/types';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
+import PrintDialog from './PrintDialog';
 
 interface ListsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onPageSelect: (page: number) => void;
   pageOffset: number;
+  baseUrl: string;
+  imageFormat: string;
+  totalPages: number;
+  useImageProxy?: boolean;
 }
 
 export default function ListsPanel({
@@ -18,6 +23,10 @@ export default function ListsPanel({
   onClose,
   onPageSelect,
   pageOffset,
+  baseUrl,
+  imageFormat,
+  totalPages,
+  useImageProxy = false,
 }: ListsPanelProps) {
   const [lists, setLists] = useState<UserList[]>([]);
   const [selectedList, setSelectedList] = useState<UserList | null>(null);
@@ -30,6 +39,7 @@ export default function ListsPanel({
   const [error, setError] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
 
   // Check authentication status
   useEffect(() => {
@@ -238,6 +248,17 @@ export default function ListsPanel({
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {selectedList ? selectedList.name : 'My Lists'}
             </h2>
+            {selectedList && listItems.length > 0 && (
+              <button
+                onClick={() => setIsPrintDialogOpen(true)}
+                className="ml-2 p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+                title="Print pages from this list"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -494,6 +515,21 @@ export default function ListsPanel({
           </div>
         )}
       </div>
+
+      {/* Print Dialog */}
+      {selectedList && (
+        <PrintDialog
+          isOpen={isPrintDialogOpen}
+          onClose={() => setIsPrintDialogOpen(false)}
+          currentPage={listItems.length > 0 ? listItems[0].page_number : 1}
+          totalPages={totalPages}
+          baseUrl={baseUrl}
+          imageFormat={imageFormat}
+          pageOffset={pageOffset}
+          useImageProxy={useImageProxy}
+          initialPages={listItems.map(item => item.page_number)}
+        />
+      )}
     </div>
   );
 }

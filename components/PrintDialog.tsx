@@ -11,6 +11,7 @@ interface PrintDialogProps {
   imageFormat: string;
   pageOffset?: number;
   useImageProxy?: boolean;
+  initialPages?: number[]; // Pre-selected pages (e.g., from a list)
 }
 
 export default function PrintDialog({
@@ -21,7 +22,8 @@ export default function PrintDialog({
   baseUrl,
   imageFormat,
   pageOffset = 0,
-  useImageProxy = false
+  useImageProxy = false,
+  initialPages
 }: PrintDialogProps) {
   const [printMode, setPrintMode] = useState<'current' | 'range' | 'selection'>('current');
   const [startPage, setStartPage] = useState(currentPage);
@@ -32,12 +34,18 @@ export default function PrintDialog({
   // Reset state when dialog opens
   useEffect(() => {
     if (isOpen) {
-      setPrintMode('current');
+      if (initialPages && initialPages.length > 0) {
+        // If initial pages provided, use selection mode
+        setPrintMode('selection');
+        setSelectedPages(initialPages);
+      } else {
+        setPrintMode('current');
+        setSelectedPages([currentPage]);
+      }
       setStartPage(currentPage);
       setEndPage(currentPage);
-      setSelectedPages([currentPage]);
     }
-  }, [isOpen, currentPage]);
+  }, [isOpen, currentPage, initialPages]);
 
   // Format page number with leading zeros
   const formatPageNumber = (num: number) => {
