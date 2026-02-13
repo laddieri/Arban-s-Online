@@ -209,6 +209,10 @@ export default function Home() {
         onClose={() => setIsListsPanelOpen(false)}
         onPageSelect={handlePageChange}
         pageOffset={appConfig.pageOffset}
+        baseUrl={appConfig.imageBaseUrl}
+        imageFormat={appConfig.imageFormat}
+        totalPages={appConfig.totalPages}
+        useImageProxy={appConfig.useImageProxy}
       />
     </div>
   );
