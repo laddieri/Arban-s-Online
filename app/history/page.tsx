@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Calendar from '@/components/Calendar';
 import {
+  getCombinedHistory,
   getDatesWithHistory,
   getPagesForDate,
   getPageCountForDate,
   formatDate,
   formatTime,
-  clearPageHistory,
+  clearAllHistory,
   PageHistoryEntry,
 } from '@/utils/pageHistory';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
@@ -17,31 +18,46 @@ import { appConfig } from '@/config/app.config';
 
 export default function HistoryPage() {
   const router = useRouter();
+  const [allHistory, setAllHistory] = useState<PageHistoryEntry[]>([]);
   const [datesWithHistory, setDatesWithHistory] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [pagesForSelectedDate, setPagesForSelectedDate] = useState<PageHistoryEntry[]>([]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load dates with history
+  // Load combined history from both localStorage and database
   useEffect(() => {
-    const dates = getDatesWithHistory();
-    setDatesWithHistory(dates);
+    async function loadHistory() {
+      setIsLoading(true);
+      try {
+        const history = await getCombinedHistory();
+        setAllHistory(history);
+        const dates = getDatesWithHistory(history);
+        setDatesWithHistory(dates);
 
-    // Auto-select the most recent date
-    if (dates.length > 0 && !selectedDate) {
-      setSelectedDate(dates[0]);
+        // Auto-select the most recent date
+        if (dates.length > 0 && !selectedDate) {
+          setSelectedDate(dates[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load history:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
+
+    loadHistory();
   }, [selectedDate]);
 
   // Load pages for selected date
   useEffect(() => {
-    if (selectedDate) {
-      const pages = getPagesForDate(selectedDate);
+    if (selectedDate && allHistory.length > 0) {
+      const pages = getPagesForDate(selectedDate, allHistory);
       setPagesForSelectedDate(pages);
     } else {
       setPagesForSelectedDate([]);
     }
-  }, [selectedDate]);
+  }, [selectedDate, allHistory]);
 
   // Navigate to a page
   const handlePageClick = (page: number) => {
@@ -50,12 +66,18 @@ export default function HistoryPage() {
   };
 
   // Clear all history
-  const handleClearHistory = () => {
-    clearPageHistory();
-    setDatesWithHistory([]);
-    setSelectedDate(null);
-    setPagesForSelectedDate([]);
-    setShowClearConfirm(false);
+  const handleClearHistory = async () => {
+    try {
+      await clearAllHistory();
+      setAllHistory([]);
+      setDatesWithHistory([]);
+      setSelectedDate(null);
+      setPagesForSelectedDate([]);
+      setShowClearConfirm(false);
+    } catch (error) {
+      console.error('Failed to clear history:', error);
+      alert('Failed to clear history. Please try again.');
+    }
   };
 
   // Get thumbnail URL for a page
@@ -107,7 +129,15 @@ export default function HistoryPage() {
 
       {/* Main Content */}
       <main className="container mx-auto p-6">
-        {datesWithHistory.length === 0 ? (
+        {isLoading ? (
+          // Loading State
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading history...</p>
+            </div>
+          </div>
+        ) : datesWithHistory.length === 0 ? (
           // Empty State
           <div className="flex flex-col items-center justify-center py-20">
             <svg
@@ -144,7 +174,7 @@ export default function HistoryPage() {
                 datesWithHistory={datesWithHistory}
                 selectedDate={selectedDate}
                 onDateSelect={setSelectedDate}
-                getPageCountForDate={getPageCountForDate}
+                getPageCountForDate={(date) => getPageCountForDate(date, allHistory)}
               />
             </div>
 

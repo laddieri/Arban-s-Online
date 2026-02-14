@@ -7,7 +7,7 @@ import TableOfContents from '@/components/TableOfContents';
 import UserMenu from '@/components/UserMenu';
 import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
-import { addPageToHistory } from '@/utils/pageHistory';
+import { addPageToHistoryDB } from '@/utils/pageHistory';
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -31,8 +31,8 @@ function HomeContent() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Add page to history
-    addPageToHistory(page);
+    // Add page to history (syncs with database for authenticated users)
+    addPageToHistoryDB(page);
     // Close sidebar on mobile when a page is selected
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);

@@ -1,6 +1,7 @@
 /**
  * Page History Management Utility
  * Tracks page views with timestamps for calendar-based history navigation
+ * Supports both localStorage (anonymous) and Supabase (authenticated users)
  */
 
 export interface PageHistoryEntry {
@@ -17,7 +18,8 @@ const HISTORY_STORAGE_KEY = 'arbans_page_history';
 const MAX_HISTORY_ENTRIES = 500; // Keep last 500 entries
 
 /**
- * Add a page view to history
+ * Add a page view to history (localStorage only - for anonymous users)
+ * For authenticated users, use addPageToHistoryDB via API
  */
 export function addPageToHistory(page: number, title?: string): void {
   if (typeof window === 'undefined') return;
@@ -51,7 +53,36 @@ export function addPageToHistory(page: number, title?: string): void {
 }
 
 /**
- * Get all page history entries
+ * Add a page view to the database (for authenticated users)
+ */
+export async function addPageToHistoryDB(page: number): Promise<void> {
+  try {
+    const response = await fetch('/api/history', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ page_number: page }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      // If authentication required, fallback to localStorage
+      if (response.status === 401) {
+        addPageToHistory(page);
+      } else {
+        console.error('Failed to add to database history:', data.error);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to sync history with database:', error);
+    // Fallback to localStorage
+    addPageToHistory(page);
+  }
+}
+
+/**
+ * Get all page history entries from localStorage
  */
 export function getPageHistory(): PageHistoryEntry[] {
   if (typeof window === 'undefined') return [];
@@ -69,10 +100,56 @@ export function getPageHistory(): PageHistoryEntry[] {
 }
 
 /**
+ * Get all page history entries from the database (for authenticated users)
+ */
+export async function getPageHistoryDB(): Promise<PageHistoryEntry[]> {
+  try {
+    const response = await fetch('/api/history', {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      // If not authenticated, return empty array
+      if (response.status === 401 || response.status === 503) {
+        return [];
+      }
+      throw new Error('Failed to fetch history from database');
+    }
+
+    const data = await response.json();
+
+    // Convert database format to PageHistoryEntry format
+    return (data.history || []).map((entry: any) => ({
+      page: entry.page_number,
+      timestamp: new Date(entry.viewed_at).getTime(),
+    }));
+  } catch (error) {
+    console.error('Failed to fetch history from database:', error);
+    return [];
+  }
+}
+
+/**
+ * Get combined history from both localStorage and database
+ */
+export async function getCombinedHistory(): Promise<PageHistoryEntry[]> {
+  const localHistory = getPageHistory();
+  const dbHistory = await getPageHistoryDB();
+
+  // Combine and deduplicate
+  const combined = [...localHistory, ...dbHistory];
+
+  // Sort by timestamp descending
+  combined.sort((a, b) => b.timestamp - a.timestamp);
+
+  // Keep only the most recent MAX_HISTORY_ENTRIES
+  return combined.slice(0, MAX_HISTORY_ENTRIES);
+}
+
+/**
  * Group history entries by date
  */
-export function getHistoryByDate(): GroupedHistory {
-  const history = getPageHistory();
+export function getHistoryByDate(history: PageHistoryEntry[] = getPageHistory()): GroupedHistory {
   const grouped: GroupedHistory = {};
 
   history.forEach(entry => {
@@ -97,8 +174,8 @@ export function getHistoryByDate(): GroupedHistory {
 /**
  * Get unique pages viewed on a specific date
  */
-export function getPagesForDate(dateStr: string): PageHistoryEntry[] {
-  const grouped = getHistoryByDate();
+export function getPagesForDate(dateStr: string, history: PageHistoryEntry[] = getPageHistory()): PageHistoryEntry[] {
+  const grouped = getHistoryByDate(history);
   const entries = grouped[dateStr] || [];
 
   // Get unique pages (deduplicate by page number, keeping most recent)
@@ -115,21 +192,21 @@ export function getPagesForDate(dateStr: string): PageHistoryEntry[] {
 /**
  * Get dates that have history entries
  */
-export function getDatesWithHistory(): string[] {
-  const grouped = getHistoryByDate();
+export function getDatesWithHistory(history: PageHistoryEntry[] = getPageHistory()): string[] {
+  const grouped = getHistoryByDate(history);
   return Object.keys(grouped).sort().reverse(); // Most recent first
 }
 
 /**
- * Get count of pages viewed on a specific date
+ * Get count of unique pages viewed on a specific date
  */
-export function getPageCountForDate(dateStr: string): number {
-  const pages = getPagesForDate(dateStr);
+export function getPageCountForDate(dateStr: string, history: PageHistoryEntry[] = getPageHistory()): number {
+  const pages = getPagesForDate(dateStr, history);
   return pages.length;
 }
 
 /**
- * Clear all history
+ * Clear all history from localStorage
  */
 export function clearPageHistory(): void {
   if (typeof window === 'undefined') return;
@@ -138,6 +215,38 @@ export function clearPageHistory(): void {
     localStorage.removeItem(HISTORY_STORAGE_KEY);
   } catch (error) {
     console.error('Failed to clear page history:', error);
+  }
+}
+
+/**
+ * Clear all history from database (for authenticated users)
+ */
+export async function clearPageHistoryDB(): Promise<void> {
+  try {
+    const response = await fetch('/api/history', {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to clear history');
+    }
+  } catch (error) {
+    console.error('Failed to clear database history:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear all history (both localStorage and database)
+ */
+export async function clearAllHistory(): Promise<void> {
+  clearPageHistory();
+  try {
+    await clearPageHistoryDB();
+  } catch (error) {
+    // If DB clear fails (e.g., not authenticated), that's okay
+    console.log('Database history clear skipped:', error);
   }
 }
 
