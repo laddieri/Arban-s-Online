@@ -1,21 +1,38 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import ImageViewer from '@/components/ImageViewer';
 import TableOfContents from '@/components/TableOfContents';
 import UserMenu from '@/components/UserMenu';
 import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
+import { addPageToHistory } from '@/utils/pageHistory';
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(-7); // Start with cover page (Roman numeral i)
   const [sidebarOpen, setSidebarOpen] = useState(true); // Sidebar visible by default on desktop
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
+  // Handle page parameter from URL (for history navigation)
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    if (pageParam) {
+      const page = parseInt(pageParam, 10);
+      if (!isNaN(page)) {
+        setCurrentPage(page);
+      }
+    }
+  }, [searchParams]);
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    // Add page to history
+    addPageToHistory(page);
     // Close sidebar on mobile when a page is selected
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
@@ -157,6 +174,27 @@ export default function Home() {
               </svg>
               <span className="hidden md:inline">My Lists</span>
             </button>
+            <button
+              onClick={() => router.push('/history')}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition flex items-center gap-2 whitespace-nowrap"
+              title="View page history"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="hidden md:inline">History</span>
+            </button>
             <UserMenu />
           </div>
         </div>
@@ -215,5 +253,20 @@ export default function Home() {
         useImageProxy={appConfig.useImageProxy}
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen bg-white dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
