@@ -44,7 +44,7 @@ export default function ImageViewer({
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [zoomLevel, setZoomLevel] = useState(0.6);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
@@ -274,11 +274,13 @@ export default function ImageViewer({
       setIsLoading(false);
       // Calculate zoom to fit entire page in viewport (only on first load)
       if (container && !initialZoomSetRef.current) {
-        // Keep initial zoom at 60% instead of calculating fit
-        setZoomLevel(0.6);
+        // Set initial zoom: 100% on mobile, 60% on desktop
+        setZoomLevel(isDesktop ? 0.6 : 1);
         initialZoomSetRef.current = true;
-        // Scroll down slightly from the top (simulate one scroll wheel click)
-        container.scrollTop = 100;
+        // Scroll down slightly from the top on desktop (simulate one scroll wheel click)
+        if (isDesktop) {
+          container.scrollTop = 100;
+        }
         container.scrollLeft = 0;
       }
       // Restore scroll position for cached images (for page changes)
@@ -429,7 +431,6 @@ export default function ImageViewer({
           style={{
             width: `${zoomLevel * 100}%`,
             ...(zoomLevel <= 1 ? { margin: '0 auto' } : {}),
-            ...(isDesktop ? {} : { minHeight: '100%' }),
           }}
         >
           {isLoading && !imageError && (
@@ -470,11 +471,11 @@ export default function ImageViewer({
                 const container = containerRef.current;
                 // Calculate zoom to fit entire page in viewport (only on first load)
                 if (!initialZoomSetRef.current) {
-                  // Keep initial zoom at 60% instead of calculating fit
-                  setZoomLevel(0.6);
+                  // Set initial zoom: 100% on mobile, 60% on desktop
+                  setZoomLevel(isDesktop ? 0.6 : 1);
                   initialZoomSetRef.current = true;
-                  // Scroll down slightly from the top (simulate one scroll wheel click)
-                  if (container) {
+                  // Scroll down slightly from the top on desktop (simulate one scroll wheel click)
+                  if (container && isDesktop) {
                     container.scrollTop = 100;
                     container.scrollLeft = 0;
                   }
