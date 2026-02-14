@@ -86,3 +86,15 @@ export interface UserListItemUpdate {
   description?: string;
   updated_at?: string;
 }
+
+export interface PageHistory {
+  id: string;
+  user_id: string;
+  page_number: number;
+  viewed_at: string;
+}
+
+export interface PageHistoryInsert {
+  user_id: string;
+  page_number: number;
+}
