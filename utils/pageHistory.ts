@@ -82,6 +82,23 @@ export async function addPageToHistoryDB(page: number): Promise<void> {
 }
 
 /**
+ * Add a page view to history with a 30-second delay
+ * Returns a cancel function to stop the delayed action if the user navigates away
+ */
+export function addPageToHistoryDBDelayed(page: number): () => void {
+  const DELAY_MS = 30000; // 30 seconds
+
+  const timeoutId = setTimeout(() => {
+    addPageToHistoryDB(page);
+  }, DELAY_MS);
+
+  // Return a cancel function
+  return () => {
+    clearTimeout(timeoutId);
+  };
+}
+
+/**
  * Get all page history entries from localStorage
  */
 export function getPageHistory(): PageHistoryEntry[] {

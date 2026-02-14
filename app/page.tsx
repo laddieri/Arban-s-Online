@@ -7,7 +7,7 @@ import TableOfContents from '@/components/TableOfContents';
 import UserMenu from '@/components/UserMenu';
 import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
-import { addPageToHistoryDB } from '@/utils/pageHistory';
+import { addPageToHistoryDBDelayed } from '@/utils/pageHistory';
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -17,6 +17,7 @@ function HomeContent() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
+  const cancelHistoryTimerRef = useRef<(() => void) | null>(null);
 
   // Handle page parameter from URL (for history navigation)
   useEffect(() => {
@@ -29,10 +30,26 @@ function HomeContent() {
     }
   }, [searchParams]);
 
+  // Cleanup: cancel any pending history timer when component unmounts
+  useEffect(() => {
+    return () => {
+      if (cancelHistoryTimerRef.current) {
+        cancelHistoryTimerRef.current();
+      }
+    };
+  }, []);
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Add page to history (syncs with database for authenticated users)
-    addPageToHistoryDB(page);
+
+    // Cancel any pending history timer from the previous page
+    if (cancelHistoryTimerRef.current) {
+      cancelHistoryTimerRef.current();
+    }
+
+    // Add page to history with 30-second delay (only recorded if user stays on page)
+    cancelHistoryTimerRef.current = addPageToHistoryDBDelayed(page);
+
     // Close sidebar on mobile when a page is selected
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
