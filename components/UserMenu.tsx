@@ -1,11 +1,17 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-export default function UserMenu() {
+interface UserMenuProps {
+  onOpenLists?: () => void;
+}
+
+export default function UserMenu({ onOpenLists }: UserMenuProps) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
@@ -264,11 +270,62 @@ export default function UserMenu() {
               {user.email}
             </p>
           </div>
+
+          {/* My Lists */}
+          <button
+            onClick={() => {
+              setIsDropdownOpen(false);
+              if (onOpenLists) onOpenLists();
+            }}
+            className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+              />
+            </svg>
+            My Lists
+          </button>
+
+          {/* History */}
+          <button
+            onClick={() => {
+              setIsDropdownOpen(false);
+              router.push('/history');
+            }}
+            className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            History
+          </button>
+
           {isAdmin && (
             <Link
               href="/admin"
               onClick={() => setIsDropdownOpen(false)}
-              className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2 border-b border-gray-200 dark:border-gray-700"
+              className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2 border-t border-gray-200 dark:border-gray-700"
             >
               <svg
                 className="w-4 h-4"
@@ -294,7 +351,7 @@ export default function UserMenu() {
           )}
           <button
             onClick={handleSignOut}
-            className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+            className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2 border-t border-gray-200 dark:border-gray-700"
           >
             <svg
               className="w-4 h-4"
