@@ -417,7 +417,7 @@ export default function ImageViewer({
 
       <div
         ref={containerRef}
-        className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-40 lg:pb-16 image-viewer-scroll ${
+        className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-52 lg:pb-16 image-viewer-scroll ${
           zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
         id="image-container"
