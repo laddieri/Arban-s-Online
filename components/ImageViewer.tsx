@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import PrintDialog from './PrintDialog';
 import MetronomeOverlay from './MetronomeOverlay';
 import YouTubeVideosOverlay from './YouTubeVideosOverlay';
@@ -54,7 +53,7 @@ export default function ImageViewer({
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuthUser();
   const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
@@ -72,25 +71,6 @@ export default function ImageViewer({
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
-  }, []);
-
-  // Check authentication status
-  useEffect(() => {
-    const supabase = createClient();
-
-    // Get initial user
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   // Handle clicks outside the add menu dropdown

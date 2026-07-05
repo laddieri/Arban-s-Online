@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import Link from 'next/link';
 
 interface VideoSubmission {
@@ -19,7 +19,7 @@ interface VideoSubmission {
 }
 
 export default function AdminPage() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading: authLoading } = useAuthUser();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [submissions, setSubmissions] = useState<VideoSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,35 +31,14 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = createClient();
-
-    // Check authentication
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      if (!data.user) {
-        setIsAdmin(false);
-        setLoading(false);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        setIsAdmin(false);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      fetchSubmissions();
+    if (authLoading) return;
+    if (!user) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
     }
-  }, [user, statusFilter]);
+    fetchSubmissions();
+  }, [user, authLoading, statusFilter]);
 
   const fetchSubmissions = async () => {
     setLoading(true);

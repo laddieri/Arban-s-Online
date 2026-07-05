@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import type { UserFavorite } from '@/lib/supabase/types';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 
@@ -21,24 +20,7 @@ export default function FavoritesPanel({
 }: FavoritesPanelProps) {
   const [favorites, setFavorites] = useState<UserFavorite[]>([]);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
-  // Check authentication status
-  useEffect(() => {
-    const supabase = createClient();
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user } = useAuthUser();
 
   // Fetch favorites when panel opens
   useEffect(() => {

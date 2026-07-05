@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuthUser } from '@/hooks/useAuthUser';
 
 interface VideoSubmissionFormProps {
   currentPage: number;
@@ -18,7 +19,7 @@ export default function VideoSubmissionForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuthUser();
   const [email, setEmail] = useState('');
 
   const [formData, setFormData] = useState({
@@ -29,22 +30,6 @@ export default function VideoSubmissionForm({
     description: '',
   });
 
-  // Check auth status on mount
-  useState(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  });
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSigningIn(true);
@@ -52,6 +37,9 @@ export default function VideoSubmissionForm({
 
     try {
       const supabase = createClient();
+      if (!supabase) {
+        throw new Error('Sign-in is unavailable: the database is not configured.');
+      }
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {

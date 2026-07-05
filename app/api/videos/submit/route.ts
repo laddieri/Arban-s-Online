@@ -1,64 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/supabase/api';
+import { extractYouTubeVideoId } from '@/utils/youtube';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'Video submission system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     const body = await request.json();
     const { page_number, video_id, title, performer, description } = body;
 
     // Validation
-    if (!page_number || !video_id || !title) {
+    if (page_number === undefined || !video_id || !title) {
       return NextResponse.json(
         { error: 'Missing required fields: page_number, video_id, title' },
         { status: 400 }
       );
     }
 
-    if (typeof page_number !== 'number' || page_number < 1) {
+    // Preface pages are negative internal page numbers (down to -pageOffset)
+    const totalPages = parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347');
+    const pageOffset = parseInt(process.env.NEXT_PUBLIC_PAGE_OFFSET || '7');
+    if (
+      typeof page_number !== 'number' ||
+      !Number.isInteger(page_number) ||
+      page_number < -pageOffset ||
+      page_number > totalPages
+    ) {
       return NextResponse.json(
         { error: 'Invalid page number' },
         { status: 400 }
       );
     }
 
-    // Extract video ID from various YouTube URL formats
-    let cleanVideoId = video_id;
-    try {
-      const url = new URL(video_id.startsWith('http') ? video_id : `https://youtube.com/watch?v=${video_id}`);
-      if (url.hostname.includes('youtube.com')) {
-        cleanVideoId = url.searchParams.get('v') || video_id;
-      } else if (url.hostname.includes('youtu.be')) {
-        cleanVideoId = url.pathname.substring(1).split('?')[0];
-      }
-    } catch {
-      // If URL parsing fails, assume it's already a video ID
+    if (typeof title !== 'string' || title.trim().length === 0 || title.trim().length > 200) {
+      return NextResponse.json(
+        { error: 'Title must be a string with maximum 200 characters' },
+        { status: 400 }
+      );
     }
 
-    // Remove any query parameters from video ID
-    cleanVideoId = cleanVideoId.split('?')[0].split('&')[0];
+    if (performer !== undefined && performer !== null &&
+        (typeof performer !== 'string' || performer.length > 200)) {
+      return NextResponse.json(
+        { error: 'Performer must be a string with maximum 200 characters' },
+        { status: 400 }
+      );
+    }
+
+    if (description !== undefined && description !== null &&
+        (typeof description !== 'string' || description.length > 1000)) {
+      return NextResponse.json(
+        { error: 'Description must be a string with maximum 1000 characters' },
+        { status: 400 }
+      );
+    }
+
+    // Extract and validate the video ID from various YouTube URL formats
+    const cleanVideoId = typeof video_id === 'string' ? extractYouTubeVideoId(video_id) : null;
+    if (!cleanVideoId) {
+      return NextResponse.json(
+        { error: 'Invalid YouTube video URL or ID' },
+        { status: 400 }
+      );
+    }
 
     // Insert submission
     const { data, error } = await supabase
@@ -66,9 +72,9 @@ export async function POST(request: NextRequest) {
       .insert({
         page_number,
         video_id: cleanVideoId,
-        title,
-        performer: performer || null,
-        description: description || null,
+        title: title.trim(),
+        performer: performer?.trim() || null,
+        description: description?.trim() || null,
         submitted_by: user.id,
         status: 'pending',
       })

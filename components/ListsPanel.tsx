@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import type { UserList, UserListItem } from '@/lib/supabase/types';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 import PrintDialog from './PrintDialog';
@@ -33,30 +32,13 @@ export default function ListsPanel({
   const [listItems, setListItems] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [itemsLoading, setItemsLoading] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuthUser();
   const [newListName, setNewListName] = useState('');
   const [showNewListForm, setShowNewListForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
-
-  // Check authentication status
-  useEffect(() => {
-    const supabase = createClient();
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Fetch lists when panel opens
   useEffect(() => {
