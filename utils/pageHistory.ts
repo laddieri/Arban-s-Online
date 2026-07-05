@@ -16,6 +16,19 @@ export interface GroupedHistory {
 
 const HISTORY_STORAGE_KEY = 'arbans_page_history';
 const MAX_HISTORY_ENTRIES = 500; // Keep last 500 entries
+const DUPLICATE_WINDOW_MS = 60000; // Treat same-page views within 1 minute as duplicates
+
+/**
+ * Format a date as a YYYY-MM-DD key in the user's local timezone.
+ * Do NOT use toISOString() for date keys: it converts to UTC, which shifts
+ * evening entries onto the next day for users west of UTC (and vice versa).
+ */
+export function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 /**
  * Add a page view to history (localStorage only - for anonymous users)
@@ -36,7 +49,7 @@ export function addPageToHistory(page: number, title?: string): void {
   // Don't add duplicate consecutive entries (same page within 1 minute)
   const lastEntry = history[history.length - 1];
   if (lastEntry && lastEntry.page === page &&
-      Date.now() - lastEntry.timestamp < 60000) {
+      Date.now() - lastEntry.timestamp < DUPLICATE_WINDOW_MS) {
     return;
   }
 
@@ -153,14 +166,24 @@ export async function getCombinedHistory(): Promise<PageHistoryEntry[]> {
   const localHistory = getPageHistory();
   const dbHistory = await getPageHistoryDB();
 
-  // Combine and deduplicate
+  // Combine and sort by timestamp descending
   const combined = [...localHistory, ...dbHistory];
-
-  // Sort by timestamp descending
   combined.sort((a, b) => b.timestamp - a.timestamp);
 
+  // Deduplicate: a page view recorded in both localStorage and the database
+  // shows up twice, so drop same-page entries within the duplicate window
+  const lastKept = new Map<number, number>();
+  const deduped = combined.filter(entry => {
+    const previous = lastKept.get(entry.page);
+    if (previous !== undefined && previous - entry.timestamp < DUPLICATE_WINDOW_MS) {
+      return false;
+    }
+    lastKept.set(entry.page, entry.timestamp);
+    return true;
+  });
+
   // Keep only the most recent MAX_HISTORY_ENTRIES
-  return combined.slice(0, MAX_HISTORY_ENTRIES);
+  return deduped.slice(0, MAX_HISTORY_ENTRIES);
 }
 
 /**
@@ -170,8 +193,7 @@ export function getHistoryByDate(history: PageHistoryEntry[] = getPageHistory())
   const grouped: GroupedHistory = {};
 
   history.forEach(entry => {
-    const date = new Date(entry.timestamp);
-    const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateKey = toLocalDateKey(new Date(entry.timestamp)); // YYYY-MM-DD, local time
 
     if (!grouped[dateKey]) {
       grouped[dateKey] = [];
@@ -276,12 +298,8 @@ export function formatDate(dateStr: string): string {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const dateOnly = date.toISOString().split('T')[0];
-  const todayOnly = today.toISOString().split('T')[0];
-  const yesterdayOnly = yesterday.toISOString().split('T')[0];
-
-  if (dateOnly === todayOnly) return 'Today';
-  if (dateOnly === yesterdayOnly) return 'Yesterday';
+  if (dateStr === toLocalDateKey(today)) return 'Today';
+  if (dateStr === toLocalDateKey(yesterday)) return 'Yesterday';
 
   return date.toLocaleDateString('en-US', {
     weekday: 'long',

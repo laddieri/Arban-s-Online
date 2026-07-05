@@ -80,13 +80,13 @@ export default function HistoryPage() {
     }
   };
 
-  // Get thumbnail URL for a page
+  // Get thumbnail URL for a page (same URL scheme as ImageViewer)
   const getThumbnailUrl = (page: number): string => {
-    const adjustedPage = page + appConfig.pageOffset;
+    const adjustedPage = (page + appConfig.pageOffset).toString().padStart(3, '0');
     if (appConfig.useImageProxy) {
-      return `/api/image/${page}`;
+      return `/api/image/${adjustedPage}`;
     }
-    return `${appConfig.imageBaseUrl}${adjustedPage.toString().padStart(4, '0')}.${appConfig.imageFormat}`;
+    return `${appConfig.imageBaseUrl}/page-${adjustedPage}.${appConfig.imageFormat}`;
   };
 
   return (
