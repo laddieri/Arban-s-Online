@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { toLocalDateKey } from '@/utils/pageHistory';
 
 interface CalendarProps {
   datesWithHistory: string[]; // Array of date strings (YYYY-MM-DD)
@@ -50,15 +51,13 @@ export default function Calendar({
   // Check if a date has history
   const hasHistory = (date: Date | null): boolean => {
     if (!date) return false;
-    const dateStr = date.toISOString().split('T')[0];
-    return datesWithHistory.includes(dateStr);
+    return datesWithHistory.includes(toLocalDateKey(date));
   };
 
   // Check if date is selected
   const isSelected = (date: Date | null): boolean => {
     if (!date || !selectedDate) return false;
-    const dateStr = date.toISOString().split('T')[0];
-    return dateStr === selectedDate;
+    return toLocalDateKey(date) === selectedDate;
   };
 
   // Check if date is today
@@ -96,8 +95,7 @@ export default function Calendar({
   // Handle date click
   const handleDateClick = (date: Date | null) => {
     if (!date || !hasHistory(date)) return;
-    const dateStr = date.toISOString().split('T')[0];
-    onDateSelect(dateStr);
+    onDateSelect(toLocalDateKey(date));
   };
 
   const monthName = currentMonth.toLocaleDateString('en-US', {
@@ -182,7 +180,7 @@ export default function Calendar({
           const hasHistoryData = hasHistory(date);
           const selected = isSelected(date);
           const today = isToday(date);
-          const pageCount = date && hasHistoryData ? getPageCountForDate(date.toISOString().split('T')[0]) : 0;
+          const pageCount = date && hasHistoryData ? getPageCountForDate(toLocalDateKey(date)) : 0;
 
           return (
             <button

@@ -1,34 +1,78 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import ImageViewer from '@/components/ImageViewer';
 import TableOfContents from '@/components/TableOfContents';
 import UserMenu from '@/components/UserMenu';
 import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
 import { addPageToHistoryDBDelayed } from '@/utils/pageHistory';
+import { getMinPage } from '@/utils/pageFormat';
+
+const LAST_PAGE_KEY = 'arbans_last_page';
+const MIN_PAGE = getMinPage(appConfig.pageOffset);
+
+function clampPage(page: number): number {
+  return Math.min(Math.max(page, MIN_PAGE), appConfig.totalPages);
+}
+
+// iPadOS 13+ reports as macOS in the user agent; touch points distinguish it
+function isIOSDevice(): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+  );
+}
 
 function HomeContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const [currentPage, setCurrentPage] = useState(-7); // Start with cover page (Roman numeral i)
+  const [currentPage, setCurrentPage] = useState(MIN_PAGE); // Start with cover page (Roman numeral i)
   const [sidebarOpen, setSidebarOpen] = useState(true); // Sidebar visible by default on desktop
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const cancelHistoryTimerRef = useRef<(() => void) | null>(null);
+  const restoredRef = useRef(false);
 
-  // Handle page parameter from URL (for history navigation)
+  // Navigate to a page: clamp to valid range, remember it, and keep the URL shareable
+  const navigateToPage = useCallback((page: number) => {
+    const clamped = clampPage(page);
+    setCurrentPage(clamped);
+    try {
+      localStorage.setItem(LAST_PAGE_KEY, String(clamped));
+    } catch {
+      // localStorage unavailable (e.g. private browsing); skip persistence
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', String(clamped));
+    window.history.replaceState(null, '', url);
+  }, []);
+
+  // On load: use the ?page= URL param if present (e.g. shared links, history
+  // navigation), otherwise resume from the last page read
   useEffect(() => {
     const pageParam = searchParams.get('page');
     if (pageParam) {
       const page = parseInt(pageParam, 10);
       if (!isNaN(page)) {
-        setCurrentPage(page);
+        restoredRef.current = true;
+        navigateToPage(page);
+        return;
       }
     }
-  }, [searchParams]);
+    if (!restoredRef.current) {
+      restoredRef.current = true;
+      try {
+        const saved = parseInt(localStorage.getItem(LAST_PAGE_KEY) ?? '', 10);
+        if (!isNaN(saved)) {
+          navigateToPage(saved);
+        }
+      } catch {
+        // localStorage unavailable; start from the cover page
+      }
+    }
+  }, [searchParams, navigateToPage]);
 
   // Cleanup: cancel any pending history timer when component unmounts
   useEffect(() => {
@@ -40,7 +84,7 @@ function HomeContent() {
   }, []);
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    navigateToPage(page);
 
     // Cancel any pending history timer from the previous page
     if (cancelHistoryTimerRef.current) {
@@ -61,7 +105,7 @@ function HomeContent() {
     if (!mainContainerRef.current) return;
 
     // Check if we're on iOS/mobile Safari (fullscreen API not supported)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isIOS = isIOSDevice();
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     const isMobile = window.innerWidth < 1024;
 
@@ -96,7 +140,7 @@ function HomeContent() {
     const handleFullscreenChange = () => {
       // Only update state if we're actually using the fullscreen API
       // (not on iOS/mobile Safari where we use pseudo-fullscreen)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isIOS = isIOSDevice();
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isMobile = window.innerWidth < 1024;
 
@@ -111,10 +155,10 @@ function HomeContent() {
 
   // Go to a random exercise page (skip first 10 pages which are intro/contents)
   const goToRandomExercise = () => {
-    const minPage = 10; // Skip cover, intro, table of contents
+    const minExercisePage = 10; // Skip cover, intro, table of contents
     const maxPage = appConfig.totalPages;
-    const randomPage = Math.floor(Math.random() * (maxPage - minPage + 1)) + minPage;
-    setCurrentPage(randomPage);
+    const randomPage = Math.floor(Math.random() * (maxPage - minExercisePage + 1)) + minExercisePage;
+    handlePageChange(randomPage);
   };
 
   return (

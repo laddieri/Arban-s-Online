@@ -183,33 +183,6 @@ export default function ImageViewer({
   }, [currentPage]);
 
   // Fetch videos for current page from API and merge with config videos
-  useEffect(() => {
-    const fetchVideos = async () => {
-      setVideosLoading(true);
-      const configVideos = getVideosForPage(currentPage);
-      try {
-        const response = await fetch(`/api/videos/${currentPage}`);
-        if (response.ok) {
-          const data = await response.json();
-          const apiVideos: ExerciseVideo[] = data.videos || [];
-          // Merge config videos with API videos, avoiding duplicates by videoId
-          const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
-          const uniqueConfigVideos = configVideos.filter(v => !apiVideoIds.has(v.videoId));
-          setVideos([...uniqueConfigVideos, ...apiVideos]);
-        } else {
-          setVideos(configVideos);
-        }
-      } catch (error) {
-        console.error('Error fetching videos:', error);
-        setVideos(configVideos);
-      } finally {
-        setVideosLoading(false);
-      }
-    };
-
-    fetchVideos();
-  }, [currentPage]);
-
   const refreshVideos = useCallback(async () => {
     setVideosLoading(true);
     const configVideos = getVideosForPage(currentPage);
@@ -218,16 +191,24 @@ export default function ImageViewer({
       if (response.ok) {
         const data = await response.json();
         const apiVideos: ExerciseVideo[] = data.videos || [];
+        // Merge config videos with API videos, avoiding duplicates by videoId
         const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
         const uniqueConfigVideos = configVideos.filter(v => !apiVideoIds.has(v.videoId));
         setVideos([...uniqueConfigVideos, ...apiVideos]);
+      } else {
+        setVideos(configVideos);
       }
     } catch (error) {
-      console.error('Error refreshing videos:', error);
+      console.error('Error fetching videos:', error);
+      setVideos(configVideos);
     } finally {
       setVideosLoading(false);
     }
   }, [currentPage]);
+
+  useEffect(() => {
+    refreshVideos();
+  }, [refreshVideos]);
 
 
   // Zoom functions
@@ -243,36 +224,12 @@ export default function ImageViewer({
     setZoomLevel(1);
   }, []);
 
-  // Calculate zoom level to fit entire image in viewport
-  // Zoom is container-relative: zoom=1 means image fills the container width.
-  // This ensures consistent visual sizing regardless of each page's native resolution.
-  const calculateFitZoom = useCallback(() => {
-    const container = containerRef.current;
-    const image = imageRef.current;
-    if (!container || !image || !image.naturalWidth || !image.naturalHeight) return 1;
-
-    const containerWidth = container.clientWidth;
-    const bottomBarHeight = isDesktop ? 64 : 160; // lg:pb-16 (64px) vs pb-40 (160px)
-    const availableHeight = container.clientHeight - bottomBarHeight;
-
-    // At zoom=1 the image fills container width. Check if that makes it too tall.
-    const heightAtFullWidth = containerWidth * (image.naturalHeight / image.naturalWidth);
-    const zoomToFitHeight = availableHeight / heightAtFullWidth;
-
-    // fitZoom ≤ 1 means we need to shrink to fit height; otherwise width already fits
-    const fitZoom = Math.min(1, zoomToFitHeight);
-
-    return Math.max(MIN_ZOOM, Math.min(fitZoom, MAX_ZOOM));
-  }, [isDesktop]);
-
   // Check if image is already loaded (e.g., from cache) after mount/hydration
-  // Also calculate fit zoom for cached images (only on first load)
   useEffect(() => {
     const img = imageRef.current;
     const container = containerRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       setIsLoading(false);
-      // Calculate zoom to fit entire page in viewport (only on first load)
       if (container && !initialZoomSetRef.current) {
         // Set initial zoom: 100% on mobile, 60% on desktop
         setZoomLevel(isDesktop ? 0.6 : 1);
@@ -289,7 +246,7 @@ export default function ImageViewer({
         container.scrollLeft = savedScrollRef.current.left;
       }
     }
-  }, [isDesktop, currentPage, calculateFitZoom]);
+  }, [isDesktop, currentPage]);
 
   // Handle mouse wheel zoom (with Ctrl/Cmd key)
   useEffect(() => {
