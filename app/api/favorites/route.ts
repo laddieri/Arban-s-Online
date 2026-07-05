@@ -1,31 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/supabase/api';
 
 // GET - List all favorites for the current user
 export async function GET(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'Favorites system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     // Get all favorites for the user
     const { data, error } = await supabase
@@ -55,28 +36,9 @@ export async function GET(request: NextRequest) {
 // POST - Add a favorite
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'Favorites system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     const body = await request.json();
     const { page_number } = body;
@@ -130,28 +92,9 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove a favorite
 export async function DELETE(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'Favorites system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     const body = await request.json();
     const { page_number } = body;

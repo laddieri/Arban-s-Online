@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import Link from 'next/link';
 
 interface UserMenuProps {
@@ -12,7 +12,7 @@ interface UserMenuProps {
 
 export default function UserMenu({ onOpenLists }: UserMenuProps) {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuthUser();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -21,36 +21,23 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // React to sign-in/sign-out: close the sign-in modal and refresh admin status
   useEffect(() => {
-    const supabase = createClient();
-
-    // Get initial user
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      if (data.user) {
-        checkAdminStatus(data.user.id);
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setIsSignInOpen(false);
-        checkAdminStatus(session.user.id);
-      } else {
-        setIsAdmin(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (user) {
+      setIsSignInOpen(false);
+      checkAdminStatus(user.id);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
 
   const checkAdminStatus = async (userId: string) => {
     try {
       const supabase = createClient();
+      if (!supabase) {
+        setIsAdmin(false);
+        return;
+      }
       const { data } = await supabase
         .from('admins')
         .select('user_id')
@@ -84,6 +71,9 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
 
     try {
       const supabase = createClient();
+      if (!supabase) {
+        throw new Error('Sign-in is unavailable: the database is not configured.');
+      }
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -106,6 +96,9 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
   const handleGoogleSignIn = async () => {
     try {
       const supabase = createClient();
+      if (!supabase) {
+        throw new Error('Sign-in is unavailable: the database is not configured.');
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -121,7 +114,9 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
 
   const handleSignOut = async () => {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setIsDropdownOpen(false);
   };
 

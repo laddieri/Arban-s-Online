@@ -1,31 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/supabase/api';
 
 // GET - List page history for the current user
 export async function GET(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'History system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     // Get all history for the user (last 500 entries)
     const { data, error } = await supabase
@@ -56,28 +37,9 @@ export async function GET(request: NextRequest) {
 // POST - Add a page view to history
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'History system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     const body = await request.json();
     const { page_number } = body;
@@ -141,28 +103,9 @@ export async function POST(request: NextRequest) {
 // DELETE - Clear all history for the current user
 export async function DELETE(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: 'History system not configured. Please contact the administrator.' },
-        { status: 503 }
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser();
+    if ('error' in auth) return auth.error;
+    const { supabase, user } = auth;
 
     // Delete all history for the user
     const { error } = await supabase

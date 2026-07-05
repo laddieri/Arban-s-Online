@@ -1,27 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/supabase/api';
 import type { UserListItem, UserListItemInsert } from '@/lib/supabase/types';
 
 // GET /api/list-items - Get all items for a specific list or all items for user
 export async function GET(request: Request) {
-  const supabase = await createClient();
-
-  // Check if Supabase is configured
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database not configured' },
-      { status: 503 }
-    );
-  }
-
-  // Check authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ('error' in auth) return auth.error;
+  const { supabase, user } = auth;
 
   // Get list_id from query params
   const { searchParams } = new URL(request.url);
@@ -73,24 +58,9 @@ export async function GET(request: Request) {
 
 // POST /api/list-items - Add a page to a list
 export async function POST(request: Request) {
-  const supabase = await createClient();
-
-  // Check if Supabase is configured
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database not configured' },
-      { status: 503 }
-    );
-  }
-
-  // Check authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ('error' in auth) return auth.error;
+  const { supabase, user } = auth;
 
   // Parse request body
   let body;
@@ -188,24 +158,9 @@ export async function POST(request: Request) {
 
 // DELETE /api/list-items - Remove a page from a list
 export async function DELETE(request: Request) {
-  const supabase = await createClient();
-
-  // Check if Supabase is configured
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database not configured' },
-      { status: 503 }
-    );
-  }
-
-  // Check authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ('error' in auth) return auth.error;
+  const { supabase, user } = auth;
 
   // Parse request body
   let body;
@@ -247,24 +202,9 @@ export async function DELETE(request: Request) {
 
 // PATCH /api/list-items - Update a list item's title/description
 export async function PATCH(request: Request) {
-  const supabase = await createClient();
-
-  // Check if Supabase is configured
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database not configured' },
-      { status: 503 }
-    );
-  }
-
-  // Check authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ('error' in auth) return auth.error;
+  const { supabase, user } = auth;
 
   // Parse request body
   let body;
