@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 
 interface PrintDialogProps {
   isOpen: boolean;
@@ -28,10 +29,17 @@ export default function PrintDialog({
   const [printMode, setPrintMode] = useState<'current' | 'range' | 'selection'>('current');
   const [startPage, setStartPage] = useState(currentPage);
   const [endPage, setEndPage] = useState(currentPage);
+  const [startInput, setStartInput] = useState('');
+  const [endInput, setEndInput] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([currentPage]);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [printScale, setPrintScale] = useState<'letter' | 'legal' | 'tabloid' | 'a3'>('letter');
-  const [printZoom, setPrintZoom] = useState(115);
+  const [paperSize, setPaperSize] = useState<'letter' | 'legal' | 'tabloid' | 'a3'>('letter');
+  // 'fill' covers the whole sheet (no white space, crops scan edges as needed);
+  // 'fit' shows the whole scan (may leave white bars if aspect ratios differ)
+  const [fitMode, setFitMode] = useState<'fill' | 'fit'>('fill');
+  const [printZoom, setPrintZoom] = useState(100);
+
+  const minPage = getMinPage(pageOffset);
 
   const paperSizes: Record<string, { label: string; width: string; height: string; description: string }> = {
     letter: { label: 'Letter (Default)', width: '8.5in', height: '11in', description: 'Standard US letter paper' },
@@ -53,8 +61,10 @@ export default function PrintDialog({
       }
       setStartPage(currentPage);
       setEndPage(currentPage);
+      setStartInput(formatDisplayPageNumber(currentPage, pageOffset));
+      setEndInput(formatDisplayPageNumber(currentPage, pageOffset));
     }
-  }, [isOpen, currentPage, initialPages]);
+  }, [isOpen, currentPage, initialPages, pageOffset]);
 
   // Format page number with leading zeros
   const formatPageNumber = (num: number) => {
@@ -103,146 +113,159 @@ export default function PrintDialog({
     });
   };
 
-  // Handle print
+  // Build the standalone print document. Zero margins everywhere: the @page
+  // margin is 0 and each .page box is the full sheet, so the only remaining
+  // border is whatever the printer hardware can't reach (unless borderless).
+  const buildPrintHtml = (pages: number[]) => {
+    const paper = paperSizes[paperSize];
+    const imagesHtml = pages
+      .map(
+        (page) => `
+        <div class="page">
+          <img src="${getImageUrl(page)}" alt="Page ${formatDisplayPageNumber(page, pageOffset)}" />
+        </div>
+      `
+      )
+      .join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Arban's Method - Print</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+
+            @page {
+              size: ${paper.width} ${paper.height} portrait;
+              margin: 0;
+            }
+
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .page {
+              width: ${paper.width};
+              height: ${paper.height};
+              overflow: hidden;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: white;
+              page-break-after: always;
+              break-inside: avoid;
+            }
+
+            .page:last-child {
+              page-break-after: auto;
+            }
+
+            .page img {
+              display: block;
+              width: 100%;
+              height: 100%;
+              object-fit: ${fitMode === 'fit' ? 'contain' : 'cover'};
+              transform: scale(${printZoom / 100});
+              transform-origin: center center;
+            }
+          </style>
+        </head>
+        <body>${imagesHtml}</body>
+      </html>
+    `;
+  };
+
+  // Wait for the images in the print document to settle; resolves with the
+  // number of images that failed to load (would print as blank sheets)
+  const waitForImages = (images: HTMLImageElement[], timeoutMs: number): Promise<number> =>
+    new Promise((resolve) => {
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        resolve(images.filter(img => !img.complete || img.naturalWidth === 0).length);
+      };
+      const timer = setTimeout(finish, timeoutMs);
+      if (images.length === 0) {
+        finish();
+        return;
+      }
+      let settled = 0;
+      const onSettle = () => {
+        settled++;
+        if (settled >= images.length) finish();
+      };
+      images.forEach(img => {
+        if (img.complete) {
+          onSettle();
+        } else {
+          img.onload = onSettle;
+          img.onerror = onSettle;
+        }
+      });
+    });
+
+  // Handle print: render into a hidden same-origin iframe (no popup, so no
+  // popup blockers), wait for images, then print the iframe document
   const handlePrint = async () => {
     const pages = getPagesToPrint();
     if (pages.length === 0) return;
 
     setIsPrinting(true);
 
+    const iframe = document.createElement('iframe');
     try {
-      // Create a new window for printing
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('Please allow popups to print pages.');
-        setIsPrinting(false);
-        return;
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentDocument;
+      const win = iframe.contentWindow;
+      if (!doc || !win) {
+        throw new Error('Could not create print frame');
+      }
+      doc.open();
+      doc.write(buildPrintHtml(pages));
+      doc.close();
+
+      // Give slow connections time proportional to the number of pages
+      const timeoutMs = 10000 + pages.length * 500;
+      const failedCount = await waitForImages(Array.from(doc.images), timeoutMs);
+
+      if (failedCount > 0) {
+        const proceed = window.confirm(
+          `${failedCount} of ${pages.length} page image(s) did not load and would print as blank sheets. Print anyway?`
+        );
+        if (!proceed) {
+          iframe.remove();
+          return;
+        }
       }
 
-      const paper = paperSizes[printScale];
-
-      // Build HTML content with images
-      const imagesHtml = pages
-        .map(
-          (page) => `
-          <div class="page">
-            <img src="${getImageUrl(page)}" alt="Page ${page}" />
-          </div>
-        `
-        )
-        .join('');
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Arban's Method - Print</title>
-            <style>
-              * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-              }
-
-              @page {
-                size: ${paper.width} ${paper.height} portrait;
-                margin: 0;
-              }
-
-              html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-
-              body {
-                background: white;
-              }
-
-              .page {
-                page-break-after: always;
-                page-break-inside: avoid;
-                width: calc(${paper.width} - 0.25in);
-                height: calc(${paper.height} - 0.25in);
-                margin: 0.125in auto;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: white;
-                overflow: hidden;
-              }
-
-              .page:last-child {
-                page-break-after: auto;
-              }
-
-              .page img {
-                display: block;
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-                transform: scale(${printZoom / 100});
-                transform-origin: center center;
-              }
-
-              @media print {
-                @page {
-                  size: ${paper.width} ${paper.height} portrait;
-                  margin: 0.125in;
-                }
-
-                .page {
-                  width: calc(${paper.width} - 0.25in);
-                  height: calc(${paper.height} - 0.25in);
-                  margin: 0 auto;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            ${imagesHtml}
-            <script>
-              // Wait for all images to load before printing
-              const images = document.querySelectorAll('img');
-              let loadedCount = 0;
-              const totalImages = images.length;
-
-              function checkAllLoaded() {
-                loadedCount++;
-                if (loadedCount >= totalImages) {
-                  setTimeout(() => {
-                    window.print();
-                    window.close();
-                  }, 100);
-                }
-              }
-
-              images.forEach(img => {
-                if (img.complete) {
-                  checkAllLoaded();
-                } else {
-                  img.onload = checkAllLoaded;
-                  img.onerror = checkAllLoaded;
-                }
-              });
-
-              // Fallback if images don't trigger load events
-              setTimeout(() => {
-                if (loadedCount < totalImages) {
-                  window.print();
-                  window.close();
-                }
-              }, 5000);
-            </script>
-          </body>
-        </html>
-      `);
-
-      printWindow.document.close();
+      win.focus();
+      win.print();
+      // Keep the frame alive while the browser's print dialog is open;
+      // clean it up once printing has had ample time to spool
+      setTimeout(() => iframe.remove(), 60000);
       onClose();
     } catch (error) {
       console.error('Print error:', error);
+      iframe.remove();
       alert('An error occurred while preparing to print.');
     } finally {
       setIsPrinting(false);
@@ -292,7 +315,7 @@ export default function PrintDialog({
                 className="w-4 h-4 text-blue-600"
               />
               <span className="text-gray-700 dark:text-gray-300">
-                Current page ({currentPage})
+                Current page ({formatDisplayPageNumber(currentPage, pageOffset)})
               </span>
             </label>
 
@@ -311,21 +334,31 @@ export default function PrintDialog({
                 {printMode === 'range' && (
                   <div className="flex items-center gap-2 mt-2">
                     <input
-                      type="number"
-                      min={0}
-                      max={totalPages}
-                      value={startPage}
-                      onChange={(e) => setStartPage(Math.max(0, Math.min(totalPages, parseInt(e.target.value) || 0)))}
+                      type="text"
+                      value={startInput}
+                      onChange={(e) => {
+                        setStartInput(e.target.value);
+                        const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
+                        if (parsed !== null) {
+                          setStartPage(Math.max(minPage, Math.min(totalPages, parsed)));
+                        }
+                      }}
                       className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700"
+                      title="Page number (use i, ii, iii... for preface pages)"
                     />
                     <span className="text-gray-500">to</span>
                     <input
-                      type="number"
-                      min={0}
-                      max={totalPages}
-                      value={endPage}
-                      onChange={(e) => setEndPage(Math.max(0, Math.min(totalPages, parseInt(e.target.value) || 0)))}
+                      type="text"
+                      value={endInput}
+                      onChange={(e) => {
+                        setEndInput(e.target.value);
+                        const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
+                        if (parsed !== null) {
+                          setEndPage(Math.max(minPage, Math.min(totalPages, parsed)));
+                        }
+                      }}
                       className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700"
+                      title="Page number (use i, ii, iii... for preface pages)"
                     />
                   </div>
                 )}
@@ -354,7 +387,7 @@ export default function PrintDialog({
           {printMode === 'selection' && (
             <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg p-3 max-h-48 overflow-y-auto">
               <div className="grid grid-cols-8 gap-1">
-                {Array.from({ length: totalPages + 1 }, (_, i) => i).map((page) => (
+                {Array.from({ length: totalPages - minPage + 1 }, (_, i) => minPage + i).map((page) => (
                   <button
                     key={page}
                     onClick={() => togglePageSelection(page)}
@@ -364,7 +397,7 @@ export default function PrintDialog({
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {page}
+                    {formatDisplayPageNumber(page, pageOffset)}
                   </button>
                 ))}
               </div>
@@ -377,8 +410,8 @@ export default function PrintDialog({
               Paper Size
             </label>
             <select
-              value={printScale}
-              onChange={(e) => setPrintScale(e.target.value as 'letter' | 'legal' | 'tabloid' | 'a3')}
+              value={paperSize}
+              onChange={(e) => setPaperSize(e.target.value as 'letter' | 'legal' | 'tabloid' | 'a3')}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm cursor-pointer"
             >
               {Object.entries(paperSizes).map(([key, size]) => (
@@ -387,17 +420,54 @@ export default function PrintDialog({
                 </option>
               ))}
             </select>
-            {printScale !== 'letter' && (
+            {paperSize !== 'letter' && (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                 Make sure your printer has the selected paper size loaded, or select &quot;Fit to page&quot; in your browser&apos;s print dialog.
               </p>
             )}
           </div>
 
+          {/* Image scaling mode */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Image Scaling
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="fitMode"
+                  value="fill"
+                  checked={fitMode === 'fill'}
+                  onChange={() => setFitMode('fill')}
+                  className="w-4 h-4 text-blue-600 mt-0.5"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Fill page</span> — no white space; trims the
+                  scan&apos;s edges as needed to cover the whole sheet
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="fitMode"
+                  value="fit"
+                  checked={fitMode === 'fit'}
+                  onChange={() => setFitMode('fit')}
+                  className="w-4 h-4 text-blue-600 mt-0.5"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Fit page</span> — shows the entire scan;
+                  may leave white bars on two sides
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* Print zoom */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Print Zoom: {printZoom}%
+              Extra Zoom: {printZoom}%
             </label>
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500">100%</span>
@@ -414,21 +484,28 @@ export default function PrintDialog({
             </div>
             {printZoom > 100 && (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Zoom above 100% will enlarge the center of the page and crop the edges.
+                Zoom above 100% enlarges the center of the page and crops more of the edges.
               </p>
             )}
           </div>
+
+          {/* Browser print dialog hint */}
+          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+            In your browser&apos;s print dialog, set Margins to <span className="font-medium">None</span> and
+            Scale to <span className="font-medium">100%</span> (not &quot;fit to page&quot;). Printing to the
+            very edge of the paper also requires a printer with borderless support.
+          </p>
 
           {/* Summary */}
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Pages to print: {getPagesToPrint().length === 1
-                ? `Page ${getPagesToPrint()[0]}`
-                : `${getPagesToPrint().length} pages (${getPagesToPrint()[0]} - ${getPagesToPrint()[getPagesToPrint().length - 1]})`
+                ? `Page ${formatDisplayPageNumber(getPagesToPrint()[0], pageOffset)}`
+                : `${getPagesToPrint().length} pages (${formatDisplayPageNumber(getPagesToPrint()[0], pageOffset)} - ${formatDisplayPageNumber(getPagesToPrint()[getPagesToPrint().length - 1], pageOffset)})`
               }
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Paper: {paperSizes[printScale].label}
+              Paper: {paperSizes[paperSize].label}, {fitMode === 'fill' ? 'fill page' : 'fit page'}
               {printZoom > 100 && ` at ${printZoom}% zoom`}
             </p>
           </div>
