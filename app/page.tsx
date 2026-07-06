@@ -28,7 +28,7 @@ function isIOSDevice(): boolean {
 function HomeContent() {
   const searchParams = useSearchParams();
   const [currentPage, setCurrentPage] = useState(MIN_PAGE); // Start with cover page (Roman numeral i)
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Sidebar visible by default on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Opened on desktop after mount; stays closed on mobile
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
   const mainContainerRef = useRef<HTMLDivElement>(null);
@@ -73,6 +73,14 @@ function HomeContent() {
       }
     }
   }, [searchParams, navigateToPage]);
+
+  // Open the sidebar by default on desktop only; on mobile it would cover
+  // the whole page, so it stays closed until the user opens it
+  useEffect(() => {
+    if (window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    }
+  }, []);
 
   // Cleanup: cancel any pending history timer when component unmounts
   useEffect(() => {
