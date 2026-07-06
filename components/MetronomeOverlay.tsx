@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Metronome from './Metronome';
 
 interface MetronomeOverlayProps {
   isOpen: boolean;
@@ -8,9 +9,9 @@ interface MetronomeOverlayProps {
 }
 
 const MIN_WIDTH = 280;
-const MIN_HEIGHT = 300;
-const DEFAULT_WIDTH = 350;
-const DEFAULT_HEIGHT = 500;
+const MIN_HEIGHT = 340;
+const DEFAULT_WIDTH = 320;
+const DEFAULT_HEIGHT = 400;
 
 export default function MetronomeOverlay({ isOpen, onClose }: MetronomeOverlayProps) {
   const [position, setPosition] = useState({ x: 20, y: 20 });
@@ -145,29 +146,23 @@ export default function MetronomeOverlay({ isOpen, onClose }: MetronomeOverlayPr
         </div>
       </div>
 
-      {/* Iframe content */}
+      {/* Metronome content - kept mounted while minimized so it keeps ticking */}
+      <div className={`w-full h-[calc(100%-40px)] overflow-auto ${isMinimized ? 'hidden' : ''}`}>
+        <Metronome />
+      </div>
       {!isMinimized && (
-        <>
-          <iframe
-            src="https://pigmetronome.com"
-            className="w-full h-[calc(100%-40px)] border-0"
-            title="Metronome"
-            allow="autoplay; microphone; camera"
-          />
-          {/* Resize handle */}
-          <div
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-            onMouseDown={handleResizeMouseDown}
+        <div
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+          onMouseDown={handleResizeMouseDown}
+        >
+          <svg
+            className="w-4 h-4 text-gray-400 dark:text-gray-500"
+            viewBox="0 0 24 24"
+            fill="currentColor"
           >
-            <svg
-              className="w-4 h-4 text-gray-400 dark:text-gray-500"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z" />
-            </svg>
-          </div>
-        </>
+            <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z" />
+          </svg>
+        </div>
       )}
     </div>
   );
