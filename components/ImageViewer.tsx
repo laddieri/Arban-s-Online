@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import PrintDialog from './PrintDialog';
 import MetronomeOverlay from './MetronomeOverlay';
@@ -27,6 +27,7 @@ interface ImageViewerProps {
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
+const NIGHT_MODE_KEY = 'arbans_night_mode';
 
 export default function ImageViewer({
   baseUrl,
@@ -44,6 +45,7 @@ export default function ImageViewer({
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [nightMode, setNightMode] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
@@ -191,18 +193,75 @@ export default function ImageViewer({
   }, [refreshVideos]);
 
 
-  // Zoom functions
-  const zoomIn = useCallback(() => {
-    setZoomLevel(prev => Math.min(prev + ZOOM_STEP, MAX_ZOOM));
+  // --- Zoom ---
+  // All zoom changes funnel through applyZoom with an anchor point (cursor,
+  // pinch midpoint, or container center) so the content under the anchor
+  // stays put. The scroll correction runs in a layout effect after React has
+  // committed the new content width.
+  const zoomRef = useRef(zoomLevel);
+  zoomRef.current = zoomLevel;
+  const pendingAnchorRef = useRef<{ x: number; y: number; prevZoom: number } | null>(null);
+
+  const applyZoom = useCallback((newZoom: number, anchor?: { x: number; y: number }) => {
+    setZoomLevel(prev => {
+      const clamped = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
+      if (clamped !== prev && anchor) {
+        pendingAnchorRef.current = { ...anchor, prevZoom: prev };
+      }
+      return clamped;
+    });
   }, []);
 
-  const zoomOut = useCallback(() => {
-    setZoomLevel(prev => Math.max(prev - ZOOM_STEP, MIN_ZOOM));
+  useLayoutEffect(() => {
+    const anchor = pendingAnchorRef.current;
+    const container = containerRef.current;
+    pendingAnchorRef.current = null;
+    if (!anchor || !container) return;
+    const rect = container.getBoundingClientRect();
+    const px = anchor.x - rect.left;
+    const py = anchor.y - rect.top;
+    const scale = zoomLevel / anchor.prevZoom;
+    container.scrollLeft = (container.scrollLeft + px) * scale - px;
+    container.scrollTop = (container.scrollTop + py) * scale - py;
+  }, [zoomLevel]);
+
+  const containerCenter = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    return rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : undefined;
   }, []);
+
+  const zoomIn = useCallback(() => {
+    applyZoom(zoomRef.current + ZOOM_STEP, containerCenter());
+  }, [applyZoom, containerCenter]);
+
+  const zoomOut = useCallback(() => {
+    applyZoom(zoomRef.current - ZOOM_STEP, containerCenter());
+  }, [applyZoom, containerCenter]);
 
   const resetZoom = useCallback(() => {
     setZoomLevel(1);
   }, []);
+
+  // Night mode: invert the sheet music for reading in dark rooms
+  useEffect(() => {
+    try {
+      setNightMode(localStorage.getItem(NIGHT_MODE_KEY) === '1');
+    } catch {
+      // localStorage unavailable; default to normal colors
+    }
+  }, []);
+
+  const toggleNightMode = () => {
+    const next = !nightMode;
+    setNightMode(next);
+    try {
+      localStorage.setItem(NIGHT_MODE_KEY, next ? '1' : '0');
+    } catch {
+      // localStorage unavailable; the toggle still works for this session
+    }
+  };
 
   // Check if image is already loaded (e.g., from cache) after mount/hydration
   useEffect(() => {
@@ -228,7 +287,8 @@ export default function ImageViewer({
     }
   }, [isDesktop, currentPage]);
 
-  // Handle mouse wheel zoom (with Ctrl/Cmd key)
+  // Handle mouse wheel zoom (with Ctrl/Cmd key; also trackpad pinch, which
+  // browsers report as ctrl+wheel), anchored at the cursor position
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -237,13 +297,63 @@ export default function ImageViewer({
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-        setZoomLevel(prev => Math.min(Math.max(prev + delta, MIN_ZOOM), MAX_ZOOM));
+        applyZoom(zoomRef.current + delta, { x: e.clientX, y: e.clientY });
       }
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
-  }, []);
+  }, [applyZoom]);
+
+  // Two-finger pinch zoom (mobile/tablet), anchored at the pinch midpoint.
+  // The container's touch-action is pan-x pan-y, so single-finger panning
+  // stays native while two-finger gestures reach these handlers.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let pinch: { startDist: number; startZoom: number } | null = null;
+
+    const touchDist = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const touchMid = (t: TouchList) => ({
+      x: (t[0].clientX + t[1].clientX) / 2,
+      y: (t[0].clientY + t[1].clientY) / 2,
+    });
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinch = { startDist: touchDist(e.touches), startZoom: zoomRef.current };
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (pinch && e.touches.length === 2) {
+        e.preventDefault();
+        const dist = touchDist(e.touches);
+        if (dist > 0 && pinch.startDist > 0) {
+          applyZoom(pinch.startZoom * (dist / pinch.startDist), touchMid(e.touches));
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        pinch = null;
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchEnd);
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [applyZoom]);
 
   const minPage = getMinPage(pageOffset);
 
@@ -354,13 +464,17 @@ export default function ImageViewer({
 
       <div
         ref={containerRef}
-        className={`h-full overflow-auto bg-gray-100 dark:bg-gray-800 pb-52 lg:pb-16 image-viewer-scroll ${
+        className={`h-full overflow-auto ${
+          nightMode ? 'bg-gray-900' : 'bg-gray-100 dark:bg-gray-800'
+        } pb-52 lg:pb-16 image-viewer-scroll ${
           zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
         id="image-container"
         style={{
           WebkitOverflowScrolling: 'touch',
-          touchAction: zoomLevel > 1 ? 'pan-x pan-y' : 'auto',
+          // pan-x pan-y keeps one-finger scrolling native but lets our
+          // touch handlers own two-finger pinch (instead of browser page zoom)
+          touchAction: 'pan-x pan-y',
           overscrollBehavior: 'contain'
         }}
       >
@@ -429,7 +543,8 @@ export default function ImageViewer({
               }}
               style={{
                 width: '100%',
-                maxWidth: 'none'
+                maxWidth: 'none',
+                ...(nightMode ? { filter: 'invert(1) hue-rotate(180deg)' } : {}),
               }}
             />
           )}
@@ -500,6 +615,17 @@ export default function ImageViewer({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                 </svg>
               )}
+            </button>
+            <button
+              onClick={toggleNightMode}
+              className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
+                nightMode ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+              title={nightMode ? 'Night mode on: restore normal page colors' : 'Night mode: invert page colors for dark rooms'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
             </button>
             <button
               onClick={() => setIsPrintDialogOpen(true)}
