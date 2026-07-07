@@ -32,6 +32,22 @@ describe('searchToc', () => {
     expect(results[0].page).toBe(339);
   });
 
+  it('finds melodies by title (OCR-extracted data)', () => {
+    const kathleen = searchToc('kathleen', OFFSET, TOTAL);
+    expect(kathleen[0].title).toBe('Kathleen Mavourneen');
+    expect(kathleen[0].page).toBe(201);
+    expect(kathleen[0].context).toContain('150 Classic and Popular Melodies');
+
+    const carnival = searchToc('trovatore', OFFSET, TOTAL);
+    expect(carnival.map(r => r.page)).toEqual(expect.arrayContaining([219, 221, 228]));
+  });
+
+  it('finds duets by title with duet context', () => {
+    const results = searchToc('adeste fideles', OFFSET, TOTAL);
+    expect(results[0].page).toBe(248);
+    expect(results[0].context).toContain('68 Duets');
+  });
+
   it('offers a direct page jump for numeric queries', () => {
     const results = searchToc('50', OFFSET, TOTAL);
     expect(results[0].isPageJump).toBe(true);
