@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Calendar from '@/components/Calendar';
+import { computePracticeStats } from '@/utils/practiceStats';
 import {
   getCombinedHistory,
   getDatesWithHistory,
@@ -24,6 +25,8 @@ export default function HistoryPage() {
   const [pagesForSelectedDate, setPagesForSelectedDate] = useState<PageHistoryEntry[]>([]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const stats = useMemo(() => computePracticeStats(allHistory), [allHistory]);
 
   // Load combined history from both localStorage and database
   useEffect(() => {
@@ -167,6 +170,54 @@ export default function HistoryPage() {
             </button>
           </div>
         ) : (
+          <>
+          {/* Practice stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="practice-stats">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5">
+              <div className="text-3xl font-bold tabular-nums text-gray-900 dark:text-white">
+                {stats.currentStreak}
+                <span className="text-base font-normal text-gray-500 dark:text-gray-400 ml-1">
+                  {stats.currentStreak === 1 ? 'day' : 'days'}
+                </span>
+              </div>
+              <div className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Current Streak
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5">
+              <div className="text-3xl font-bold tabular-nums text-gray-900 dark:text-white">
+                {stats.daysLast30}
+                <span className="text-base font-normal text-gray-500 dark:text-gray-400 ml-1">of 30</span>
+              </div>
+              <div className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Days Practiced (last 30)
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5">
+              <div className="text-3xl font-bold tabular-nums text-gray-900 dark:text-white">
+                {stats.totalUniquePages}
+              </div>
+              <div className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Pages Explored
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5">
+              <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                Most Practiced
+              </div>
+              {stats.topPages.slice(0, 3).map(({ page, count }) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageClick(page)}
+                  className="w-full flex justify-between items-center text-sm py-0.5 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                >
+                  <span>Page {formatDisplayPageNumber(page, appConfig.pageOffset)}</span>
+                  <span className="tabular-nums text-gray-500 dark:text-gray-400">{count}×</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar Section */}
             <div className="lg:col-span-1">
@@ -245,6 +296,7 @@ export default function HistoryPage() {
               )}
             </div>
           </div>
+          </>
         )}
       </main>
 
