@@ -1,157 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 import { appConfig } from '@/config/app.config';
-
-interface Section {
-  title: string;
-  page: number;
-  subsections?: Section[];
-}
+import { sections, Section } from '@/config/tocSections';
+import { searchToc } from '@/utils/tocSearch';
 
 interface TableOfContentsProps {
   onPageSelect: (page: number) => void;
   currentPage: number;
 }
 
-// Table of Contents based on typical Arban's Method structure
-// Negative page numbers are preface pages (displayed as Roman numerals)
-// Page numbers use the pageOffset to map to actual image files
-const sections: Section[] = [
-  {
-    title: "Title Page and Introduction",
-    page: -7,
-    subsections: [
-      { title: "Cover", page: -7 },
-      { title: "Musical Terms", page: -6 },
-      { title: "Report", page: -5 },
-      { title: "Arban Biography", page: -4 },
-      { title: "Preface", page: -3 },
-      { title: "Table of Harmonics", page: -1 },
-      { title: "Diagram of Cornet", page: 0 },
-      { title: "Compass of Cornet", page: 1 },
-      { title: "Position of Mouthpiece on the Lips", page: 3 },
-      { title: "Style", page: 6 },
-    ],
-  },
-  {
-    title: "First Studies",
-    page: 11,
-    subsections: [
-      {
-        title: "First Studies",
-        page: 11,
-        subsections:[
-          {title:"#1 --> #6", page:11},
-          {title:"#7 -->#9", page:12},
-        ],
-      },
-      { title: "The Study of Syncopation", page: 23 },
-      { title: "Studies on Dotted Eighth Notes", page: 26 },
-      { title: "Studies of the Slur, Explanation", page: 37 },
-      { title: "Studies of the Slur", page: 39 },
-      { title: "Lip Trills", page: 44 },
-    ],
-  },
-  {
-    title: "Scale Studies",
-    page: 57,
-    subsections: [
-      { title: "Major Scales", page: 59 },
-      { title: "Minor Scales", page: 75 },
-      { title: "Chromatic Scales", page: 76 },
-      { title: "Chromatic Triples", page: 80 },
-    ],
-  },
-  {
-    title: "Grace Notes",
-    page: 87,
-    subsections: [
-      { title: "Preparatory Exercises on the Gruppetto", page: 91 },
-      { title: "The Gruppetto", page: 99 },
-      { title: "The Double Appoggiatura", page: 104 },
-      { title: "The Simple Appoggiatura", page: 106 },
-      { title: "The Portamento", page: 110 },
-      { title: "The Trill or Shake", page: 111 },
-      { title: "The Mordant", page: 120 },
-    ],
-  },
-  {
-    title: "More Advanced Studies",
-    page: 123,
-    subsections: [
-      { title: "Studies on the Intervals", page: 125 },
-      { title: "Octaves and Tenths", page: 131 },
-      { title: "Exercises on Triplets", page: 132 },
-      { title: "Octaves and Tenths", page: 131 },
-      { title: "Exercises on Sixteenth Notes", page: 137 },
-      { title: "Major and Minor Chords", page: 142 },
-      { title: "The Chord of the Dominant Seventh", page: 147 },
-      { title: "The Chord of the Diminished Seventh", page: 149 },
-      { title: "Cadenzas", page: 152 },
-    ],
-  },
-  {
-    title: "Tonguing",
-    page: 153,
-    subsections: [
-      { title: "Triple Tonguing", page: 155 },
-      { title: "Double Tonguing", page: 175 },
-      { title: "The Slur and Double Tonguing", page: 183 },
-      { title: "Tonguing as Applied to the Trumpet", page: 188},
-    ],
-  },
-  {
-    title: "The Art of Phrasing",
-    page: 191,
-    subsections: [
-      { title: "150 Classic and Popular Melodies", page: 191 },
-      { title: "68 Duets", page: 246 },
-    ],
-  },
-  {
-    title: "Characteristic Studies",
-    page: 285,
-    subsections: [
-      { title: "#1", page: 285 },
-      { title: "#2", page: 286 },
-      { title: "#3", page: 287 },
-      { title: "#4", page: 288 },
-      { title: "#5", page: 289 },
-      { title: "#6", page: 290 },
-      { title: "#7", page: 291 },
-      { title: "#8", page: 292 },
-      { title: "#9", page: 293 },
-      { title: "#10", page: 294 },
-      { title: "#11", page: 295 },
-      { title: "#12", page: 296 },
-      { title: "#13", page: 297 },
-      { title: "#14", page: 298 },
-    ],
-  },
-  {
-    title: "Celebrated Fantaisies and Airs Variés",
-    page: 300,
-    subsections: [
-      { title: "Fantasie and Variations on a Cavatina", page: 301 },
-      { title: "Fantasie and Variations on Acteon", page: 305 },
-      { title: "Fantasie Brilliante", page: 309 },
-      { title: "Variations on a Tyrolean Song", page: 313 },
-      { title: "Variations on a song 'The Beautiful Snow'", page: 317 },
-      { title: "Cavatina and Variations", page: 320 },
-      { title: "Air Varie on a Folk Song 'The Little Swiss Boy'", page: 323 },
-      { title: "Fantasie and Variations on a German Theme", page: 331 },
-      { title: "Variations on a favorite theme by C.M. von Weber", page: 335 },
-      { title: "Fantasie and Variations on the Carnival of Venice", page: 339 },
-      { title: "Variations on a theme from Norma by V. Bellini", page: 344 },
-    ],
-  },
-];
 
 export default function TableOfContents({ onPageSelect, currentPage }: TableOfContentsProps) {
   // Track which sections are expanded by key (e.g. "0", "0-1", "0-1-2" for nested)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
+
+  const searchResults = useMemo(
+    () => searchToc(query, appConfig.pageOffset, appConfig.totalPages),
+    [query]
+  );
 
   const toggleSection = (key: string, depth: number) => {
     setExpandedKeys(prev => {
@@ -248,11 +117,90 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
         <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
           Table of Contents
         </h2>
-        <div className="space-y-1">
-          {sections.map((section, index) =>
-            renderSection(section, String(index), 0)
+
+        {/* Search */}
+        <div className="relative mb-4">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchResults.length > 0) {
+                onPageSelect(searchResults[0].page);
+                setQuery('');
+              } else if (e.key === 'Escape') {
+                setQuery('');
+              }
+            }}
+            placeholder="Search exercises or page #"
+            aria-label="Search table of contents"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              aria-label="Clear search"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           )}
         </div>
+
+        {query.trim() ? (
+          /* Search results */
+          <div className="space-y-1" data-testid="toc-search-results">
+            {searchResults.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 px-1">
+                No matches. Try an exercise name or a page number.
+              </p>
+            ) : (
+              searchResults.map((result, i) => (
+                <button
+                  key={`${result.page}-${i}`}
+                  onClick={() => {
+                    onPageSelect(result.page);
+                    setQuery('');
+                  }}
+                  className="w-full text-left px-3 py-2 rounded hover:bg-blue-50 dark:hover:bg-gray-800 active:bg-blue-200 dark:active:bg-gray-600 transition"
+                >
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="min-w-0">
+                      <span className={`text-sm block truncate ${result.isPageJump ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {result.title}
+                      </span>
+                      {result.context && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 block truncate">
+                          {result.context}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                      p.{formatDisplayPageNumber(result.page, appConfig.pageOffset)}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        ) : (
+          /* Section tree */
+          <div className="space-y-1">
+            {sections.map((section, index) =>
+              renderSection(section, String(index), 0)
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
