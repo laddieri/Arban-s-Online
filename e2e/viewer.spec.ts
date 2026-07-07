@@ -94,6 +94,24 @@ test.describe('sidebar defaults on mobile', () => {
     await expect(page.locator('div.bg-black.bg-opacity-50')).toHaveCount(0);
     await expect(page.locator('aside')).toHaveClass(/-translate-x-full/);
   });
+
+  test('opened sidebar sits below the header (search box not covered)', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Toggle sidebar' }).tap();
+    const search = page.getByPlaceholder('Search exercises or page #');
+    await expect(search).toBeVisible();
+
+    const headerBox = (await page.locator('header').boundingBox())!;
+    const searchBox = (await search.boundingBox())!;
+    expect(searchBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
+
+    // and it's actually interactive: typing works with no element intercepting
+    await search.tap();
+    await search.fill('carnival');
+    await expect(
+      page.locator('[data-testid="toc-search-results"] button').first()
+    ).toContainText('Carnival');
+  });
 });
 
 test.describe('sidebar defaults on desktop', () => {
