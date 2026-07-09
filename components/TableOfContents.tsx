@@ -2,24 +2,26 @@
 
 import { useState, useMemo } from 'react';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
-import { appConfig } from '@/config/app.config';
-import { sections, Section } from '@/config/tocSections';
+import { Section } from '@/config/tocSections';
+import { Book, books } from '@/config/books';
 import { searchToc } from '@/utils/tocSearch';
 
 interface TableOfContentsProps {
+  book: Book;
+  onBookChange: (bookId: string) => void;
   onPageSelect: (page: number) => void;
   currentPage: number;
 }
 
 
-export default function TableOfContents({ onPageSelect, currentPage }: TableOfContentsProps) {
+export default function TableOfContents({ book, onBookChange, onPageSelect, currentPage }: TableOfContentsProps) {
   // Track which sections are expanded by key (e.g. "0", "0-1", "0-1-2" for nested)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
 
   const searchResults = useMemo(
-    () => searchToc(query, appConfig.pageOffset, appConfig.totalPages),
-    [query]
+    () => searchToc(query, book),
+    [query, book]
   );
 
   const toggleSection = (key: string, depth: number) => {
@@ -89,7 +91,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
             <div className="flex justify-between items-center">
               <span className={textSize}>{section.title}</span>
               <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
-                p.{formatDisplayPageNumber(section.page, appConfig.pageOffset)}
+                p.{formatDisplayPageNumber(section.page, book.pageOffset)}
               </span>
             </div>
           </button>
@@ -117,6 +119,20 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
         <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
           Table of Contents
         </h2>
+
+        {/* Book switcher - only shown once there is more than one book */}
+        {books.length > 1 && (
+          <select
+            value={book.id}
+            onChange={(e) => onBookChange(e.target.value)}
+            aria-label="Select book"
+            className="w-full mb-3 px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 cursor-pointer"
+          >
+            {books.map(b => (
+              <option key={b.id} value={b.id}>{b.shortTitle}</option>
+            ))}
+          </select>
+        )}
 
         {/* Search */}
         <div className="relative mb-4">
@@ -186,7 +202,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
                       )}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                      p.{formatDisplayPageNumber(result.page, appConfig.pageOffset)}
+                      p.{formatDisplayPageNumber(result.page, book.pageOffset)}
                     </span>
                   </div>
                 </button>
@@ -196,7 +212,7 @@ export default function TableOfContents({ onPageSelect, currentPage }: TableOfCo
         ) : (
           /* Section tree */
           <div className="space-y-1">
-            {sections.map((section, index) =>
+            {book.sections.map((section, index) =>
               renderSection(section, String(index), 0)
             )}
           </div>

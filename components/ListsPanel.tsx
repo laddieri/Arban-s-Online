@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import type { UserList, UserListItem } from '@/lib/supabase/types';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
+import { getBook, DEFAULT_BOOK_ID } from '@/config/books';
 import PrintDialog from './PrintDialog';
 
 interface ListsPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onPageSelect: (page: number) => void;
+  onPageSelect: (page: number, bookId?: string) => void;
   pageOffset: number;
   baseUrl: string;
   imageFormat: string;
@@ -192,8 +193,8 @@ export default function ListsPanel({
     }
   };
 
-  const handlePageClick = (pageNumber: number) => {
-    onPageSelect(pageNumber);
+  const handlePageClick = (pageNumber: number, bookId?: string) => {
+    onPageSelect(pageNumber, bookId ?? DEFAULT_BOOK_ID);
     onClose();
   };
 
@@ -230,7 +231,7 @@ export default function ListsPanel({
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {selectedList ? selectedList.name : 'My Lists'}
             </h2>
-            {selectedList && listItems.length > 0 && (
+            {selectedList && listItems.length > 0 && new Set(listItems.map(i => i.book_id ?? DEFAULT_BOOK_ID)).size === 1 && (
               <button
                 onClick={() => setIsPrintDialogOpen(true)}
                 className="ml-2 p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
@@ -286,15 +287,15 @@ export default function ListsPanel({
                       className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
                     >
                       <button
-                        onClick={() => handlePageClick(item.page_number)}
+                        onClick={() => handlePageClick(item.page_number, item.book_id)}
                         className="flex-1 text-left"
                       >
                         <div className="font-medium text-gray-900 dark:text-gray-100">
-                          {item.title || `Page ${formatDisplayPageNumber(item.page_number, pageOffset)}`}
+                          {item.title || `${getBook(item.book_id).shortTitle} - Page ${formatDisplayPageNumber(item.page_number, getBook(item.book_id).pageOffset)}`}
                         </div>
                         {!item.title && (
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Page {formatDisplayPageNumber(item.page_number, pageOffset)}
+                            Page {formatDisplayPageNumber(item.page_number, getBook(item.book_id).pageOffset)}
                           </div>
                         )}
                         {item.description && (
@@ -503,11 +504,12 @@ export default function ListsPanel({
         <PrintDialog
           isOpen={isPrintDialogOpen}
           onClose={() => setIsPrintDialogOpen(false)}
+          bookId={listItems[0]?.book_id ?? DEFAULT_BOOK_ID}
           currentPage={listItems.length > 0 ? listItems[0].page_number : 1}
-          totalPages={totalPages}
+          totalPages={listItems.length > 0 ? getBook(listItems[0].book_id).totalPages : totalPages}
           baseUrl={baseUrl}
           imageFormat={imageFormat}
-          pageOffset={pageOffset}
+          pageOffset={listItems.length > 0 ? getBook(listItems[0].book_id).pageOffset : pageOffset}
           useImageProxy={useImageProxy}
           initialPages={listItems.map(item => item.page_number)}
         />

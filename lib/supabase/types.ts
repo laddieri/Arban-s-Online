@@ -3,6 +3,7 @@ export type VideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export interface VideoSubmission {
   id: string;
   page_number: number;
+  book_id: string;
   video_id: string;
   title: string;
   performer?: string;
@@ -17,6 +18,7 @@ export interface VideoSubmission {
 
 export interface VideoSubmissionInsert {
   page_number: number;
+  book_id?: string;
   video_id: string;
   title: string;
   performer?: string;
@@ -28,6 +30,7 @@ export interface VideoSubmissionInsert {
 export interface ApprovedVideo {
   id: string;
   page_number: number;
+  book_id?: string;
   video_id: string;
   title: string;
   performer?: string;
@@ -38,12 +41,14 @@ export interface UserFavorite {
   id: string;
   user_id: string;
   page_number: number;
+  book_id: string;
   created_at: string;
 }
 
 export interface UserFavoriteInsert {
   user_id: string;
   page_number: number;
+  book_id?: string;
 }
 
 export interface UserList {
@@ -68,6 +73,7 @@ export interface UserListItem {
   id: string;
   list_id: string;
   page_number: number;
+  book_id: string;
   title?: string;
   description?: string;
   created_at: string;
@@ -77,6 +83,7 @@ export interface UserListItem {
 export interface UserListItemInsert {
   list_id: string;
   page_number: number;
+  book_id?: string;
   title?: string;
   description?: string;
 }
@@ -91,10 +98,12 @@ export interface PageHistory {
   id: string;
   user_id: string;
   page_number: number;
+  book_id: string;
   viewed_at: string;
 }
 
 export interface PageHistoryInsert {
   user_id: string;
   page_number: number;
+  book_id?: string;
 }

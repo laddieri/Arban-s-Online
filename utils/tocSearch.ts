@@ -1,4 +1,5 @@
-import { sections, Section } from '@/config/tocSections';
+import { Section } from '@/config/tocSections';
+import { Book } from '@/config/books';
 import { parseDisplayPageNumber } from './pageFormat';
 
 export interface TocSearchResult {
@@ -18,10 +19,11 @@ interface IndexEntry {
   words: string[];
 }
 
-let indexCache: IndexEntry[] | null = null;
+const indexCache = new Map<string, IndexEntry[]>();
 
-function buildIndex(): IndexEntry[] {
-  if (indexCache) return indexCache;
+function buildIndex(book: Book): IndexEntry[] {
+  const cached = indexCache.get(book.id);
+  if (cached) return cached;
   const entries: IndexEntry[] = [];
   const walk = (nodes: Section[], ancestors: string[]) => {
     for (const node of nodes) {
@@ -39,38 +41,33 @@ function buildIndex(): IndexEntry[] {
       }
     }
   };
-  walk(sections, []);
-  indexCache = entries;
+  walk(book.sections, []);
+  indexCache.set(book.id, entries);
   return entries;
 }
 
 /**
- * Search the table of contents. Matches every whitespace-separated token as a
- * substring of the entry's "ancestors + title" text; numeric tokens rank
+ * Search a book's table of contents. Matches every whitespace-separated token
+ * as a substring of the entry's "ancestors + title" text; numeric tokens rank
  * exact matches (e.g. "2" -> "#2") above substring hits (e.g. "#12").
  * A query that parses as a page number (Arabic or Roman) also returns a
  * direct "go to page" result.
  */
-export function searchToc(
-  query: string,
-  pageOffset: number,
-  totalPages: number,
-  limit = 20
-): TocSearchResult[] {
+export function searchToc(query: string, book: Book, limit = 20): TocSearchResult[] {
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return [];
 
   const results: TocSearchResult[] = [];
 
-  const asPage = parseDisplayPageNumber(trimmed, pageOffset);
-  if (asPage !== null && asPage >= -pageOffset && asPage <= totalPages) {
+  const asPage = parseDisplayPageNumber(trimmed, book.pageOffset);
+  if (asPage !== null && asPage >= -book.pageOffset && asPage <= book.totalPages) {
     results.push({ title: `Go to page ${query.trim()}`, context: '', page: asPage, isPageJump: true });
   }
 
   const tokens = trimmed.split(/\s+/).filter(Boolean);
   if (tokens.length > 0) {
     const scored: { entry: IndexEntry; score: number }[] = [];
-    for (const entry of buildIndex()) {
+    for (const entry of buildIndex(book)) {
       let score = 0;
       let matched = true;
       for (const token of tokens) {

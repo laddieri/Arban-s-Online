@@ -14,14 +14,16 @@ createServer(async (req, res) => {
     res.end('ok');
     return;
   }
-  const name = path.basename(req.url.split('?')[0]);
-  if (!/^page-\d{3}\.png$/.test(name)) {
+  const urlPath = req.url.split('?')[0];
+  const match = urlPath.match(/^\/(?:(\w+)\/)?(page-\d{3}\.png)$/);
+  if (!match) {
     res.writeHead(404);
     res.end();
     return;
   }
+  const [, subdir, name] = match;
   try {
-    const data = await readFile(path.join(dir, name));
+    const data = await readFile(subdir ? path.join(dir, subdir, name) : path.join(dir, name));
     res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
     res.end(data);
   } catch {

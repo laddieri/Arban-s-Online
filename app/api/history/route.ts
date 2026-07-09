@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
+import { isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
 
 // GET - List page history for the current user
 export async function GET(request: NextRequest) {
@@ -52,6 +53,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
+    if (typeof bookId !== 'string' || !isValidBookId(bookId)) {
+      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
+    }
+
     // Check if the same page was viewed in the last minute (avoid duplicates)
     const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
     const { data: recentViews } = await supabase
@@ -59,6 +65,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('user_id', user.id)
       .eq('page_number', page_number)
+      .eq('book_id', bookId)
       .gte('viewed_at', oneMinuteAgo)
       .limit(1);
 
@@ -75,6 +82,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         page_number,
+        book_id: bookId,
       })
       .select()
       .single();

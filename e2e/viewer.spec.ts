@@ -13,11 +13,18 @@ test.describe('reading position', () => {
 
   test('navigation syncs the URL and persists the last page', async ({ page }) => {
     await page.goto('/');
-    await expect(pageInput(page)).toHaveValue('i');
+    await expect(page).toHaveURL(/page=-7/);
+    // Interact through the page input first: a keypress in the very first
+    // instants after load can be swallowed while hydration settles, so
+    // establish interactivity before testing the keyboard shortcuts
+    await pageInput(page).fill('50');
+    await expect(page).toHaveURL(/page=50/);
+    await page.locator('#image-container').click(); // move focus off the input
     await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await expect(page).toHaveURL(/page=-5/);
-    expect(await page.evaluate(() => localStorage.getItem('arbans_last_page'))).toBe('-5');
+    await expect(page).toHaveURL(/page=51/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(page).toHaveURL(/page=50/);
+    expect(await page.evaluate(() => localStorage.getItem('arbans_last_page'))).toBe('50');
   });
 
   test('reloading a bare / resumes at the last page read', async ({ page }) => {
@@ -93,6 +100,24 @@ test.describe('sidebar defaults on mobile', () => {
     await page.goto('/');
     await expect(page.locator('div.bg-black.bg-opacity-50')).toHaveCount(0);
     await expect(page.locator('aside')).toHaveClass(/-translate-x-full/);
+  });
+
+  test('opened sidebar sits below the header (search box not covered)', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Toggle sidebar' }).tap();
+    const search = page.getByPlaceholder('Search exercises or page #');
+    await expect(search).toBeVisible();
+
+    const headerBox = (await page.locator('header').boundingBox())!;
+    const searchBox = (await search.boundingBox())!;
+    expect(searchBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
+
+    // and it's actually interactive: typing works with no element intercepting
+    await search.tap();
+    await search.fill('carnival');
+    await expect(
+      page.locator('[data-testid="toc-search-results"] button').first()
+    ).toContainText('Carnival');
   });
 });
 

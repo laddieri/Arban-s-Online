@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
 import { extractYouTubeVideoId } from '@/utils/youtube';
+import { getBook, isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { page_number, video_id, title, performer, description } = body;
 
+    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
+    if (typeof bookId !== 'string' || !isValidBookId(bookId)) {
+      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
+    }
+    const book = getBook(bookId);
+
     // Validation
     if (page_number === undefined || !video_id || !title) {
       return NextResponse.json(
@@ -20,13 +27,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Preface pages are negative internal page numbers (down to -pageOffset)
-    const totalPages = parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347');
-    const pageOffset = parseInt(process.env.NEXT_PUBLIC_PAGE_OFFSET || '7');
     if (
       typeof page_number !== 'number' ||
       !Number.isInteger(page_number) ||
-      page_number < -pageOffset ||
-      page_number > totalPages
+      page_number < -book.pageOffset ||
+      page_number > book.totalPages
     ) {
       return NextResponse.json(
         { error: 'Invalid page number' },
@@ -71,6 +76,7 @@ export async function POST(request: NextRequest) {
       .from('video_submissions')
       .insert({
         page_number,
+        book_id: bookId,
         video_id: cleanVideoId,
         title: title.trim(),
         performer: performer?.trim() || null,

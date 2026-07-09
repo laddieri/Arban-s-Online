@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBook, isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
 
 // Proxy images through the app to avoid school filter issues
-// Images will be served from /api/image/[page] instead of the external CDN
+// Images will be served from /api/image/[page]?book=<id> instead of the external CDN
 
 export async function GET(
   request: NextRequest,
@@ -19,7 +20,13 @@ export async function GET(
     );
   }
 
-  // Validate page parameter (should be a 3-digit number like 001, 002, etc.)
+  const bookParam = request.nextUrl.searchParams.get('book') ?? DEFAULT_BOOK_ID;
+  if (!isValidBookId(bookParam)) {
+    return NextResponse.json({ error: 'Unknown book' }, { status: 404 });
+  }
+  const book = getBook(bookParam);
+
+  // Validate page parameter (image file number, offset already applied)
   if (!/^\d{1,3}$/.test(page)) {
     return NextResponse.json(
       { error: 'Invalid page number' },
@@ -27,12 +34,7 @@ export async function GET(
     );
   }
 
-  // Validate page is within valid range
-  // Note: The API receives image file numbers (with offset applied), not display page numbers
-  // Max valid image file number = totalPages + pageOffset
-  const totalPages = parseInt(process.env.NEXT_PUBLIC_TOTAL_PAGES || '347');
-  const pageOffset = parseInt(process.env.NEXT_PUBLIC_PAGE_OFFSET || '7');
-  const maxImagePageNum = totalPages + pageOffset;
+  const maxImagePageNum = book.totalPages + book.pageOffset;
   const pageNum = parseInt(page);
   if (pageNum < 0 || pageNum > maxImagePageNum) {
     return NextResponse.json(
@@ -42,7 +44,8 @@ export async function GET(
   }
 
   const paddedPage = page.padStart(3, '0');
-  const imageUrl = `${imageBaseUrl}/page-${paddedPage}.${imageFormat}`;
+  const prefix = book.imagePrefix ? `${book.imagePrefix}/` : '';
+  const imageUrl = `${imageBaseUrl}/${prefix}page-${paddedPage}.${imageFormat}`;
 
   try {
     const response = await fetch(imageUrl, {

@@ -7,7 +7,16 @@
 export interface PageHistoryEntry {
   page: number;
   timestamp: number;
+  /** Book the page belongs to; entries recorded before multi-book support are 'arban' */
+  book?: string;
   title?: string;
+}
+
+export const DEFAULT_HISTORY_BOOK = 'arban';
+
+/** Book id for an entry, treating pre-multi-book entries as the default book */
+export function entryBook(entry: PageHistoryEntry): string {
+  return entry.book ?? DEFAULT_HISTORY_BOOK;
 }
 
 export interface GroupedHistory {
@@ -34,7 +43,7 @@ export function toLocalDateKey(date: Date): string {
  * Add a page view to history (localStorage only - for anonymous users)
  * For authenticated users, use addPageToHistoryDB via API
  */
-export function addPageToHistory(page: number, title?: string): void {
+export function addPageToHistory(page: number, book: string = DEFAULT_HISTORY_BOOK, title?: string): void {
   if (typeof window === 'undefined') return;
 
   const history = getPageHistory();
@@ -43,12 +52,13 @@ export function addPageToHistory(page: number, title?: string): void {
   const entry: PageHistoryEntry = {
     page,
     timestamp: Date.now(),
+    book,
     title,
   };
 
   // Don't add duplicate consecutive entries (same page within 1 minute)
   const lastEntry = history[history.length - 1];
-  if (lastEntry && lastEntry.page === page &&
+  if (lastEntry && lastEntry.page === page && entryBook(lastEntry) === book &&
       Date.now() - lastEntry.timestamp < DUPLICATE_WINDOW_MS) {
     return;
   }
@@ -68,21 +78,21 @@ export function addPageToHistory(page: number, title?: string): void {
 /**
  * Add a page view to the database (for authenticated users)
  */
-export async function addPageToHistoryDB(page: number): Promise<void> {
+export async function addPageToHistoryDB(page: number, book: string = DEFAULT_HISTORY_BOOK): Promise<void> {
   try {
     const response = await fetch('/api/history', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ page_number: page }),
+      body: JSON.stringify({ page_number: page, book_id: book }),
     });
 
     if (!response.ok) {
       const data = await response.json();
       // If authentication required, fallback to localStorage
       if (response.status === 401) {
-        addPageToHistory(page);
+        addPageToHistory(page, book);
       } else {
         console.error('Failed to add to database history:', data.error);
       }
@@ -90,7 +100,7 @@ export async function addPageToHistoryDB(page: number): Promise<void> {
   } catch (error) {
     console.error('Failed to sync history with database:', error);
     // Fallback to localStorage
-    addPageToHistory(page);
+    addPageToHistory(page, book);
   }
 }
 
@@ -98,11 +108,11 @@ export async function addPageToHistoryDB(page: number): Promise<void> {
  * Add a page view to history with a 30-second delay
  * Returns a cancel function to stop the delayed action if the user navigates away
  */
-export function addPageToHistoryDBDelayed(page: number): () => void {
+export function addPageToHistoryDBDelayed(page: number, book: string = DEFAULT_HISTORY_BOOK): () => void {
   const DELAY_MS = 30000; // 30 seconds
 
   const timeoutId = setTimeout(() => {
-    addPageToHistoryDB(page);
+    addPageToHistoryDB(page, book);
   }, DELAY_MS);
 
   // Return a cancel function
@@ -152,6 +162,7 @@ export async function getPageHistoryDB(): Promise<PageHistoryEntry[]> {
     return (data.history || []).map((entry: any) => ({
       page: entry.page_number,
       timestamp: new Date(entry.viewed_at).getTime(),
+      book: entry.book_id ?? DEFAULT_HISTORY_BOOK,
     }));
   } catch (error) {
     console.error('Failed to fetch history from database:', error);
@@ -172,13 +183,14 @@ export async function getCombinedHistory(): Promise<PageHistoryEntry[]> {
 
   // Deduplicate: a page view recorded in both localStorage and the database
   // shows up twice, so drop same-page entries within the duplicate window
-  const lastKept = new Map<number, number>();
+  const lastKept = new Map<string, number>();
   const deduped = combined.filter(entry => {
-    const previous = lastKept.get(entry.page);
+    const key = `${entryBook(entry)}:${entry.page}`;
+    const previous = lastKept.get(key);
     if (previous !== undefined && previous - entry.timestamp < DUPLICATE_WINDOW_MS) {
       return false;
     }
-    lastKept.set(entry.page, entry.timestamp);
+    lastKept.set(key, entry.timestamp);
     return true;
   });
 
@@ -217,11 +229,12 @@ export function getPagesForDate(dateStr: string, history: PageHistoryEntry[] = g
   const grouped = getHistoryByDate(history);
   const entries = grouped[dateStr] || [];
 
-  // Get unique pages (deduplicate by page number, keeping most recent)
-  const uniquePages = new Map<number, PageHistoryEntry>();
+  // Get unique pages (deduplicate by book+page, keeping most recent)
+  const uniquePages = new Map<string, PageHistoryEntry>();
   entries.forEach(entry => {
-    if (!uniquePages.has(entry.page)) {
-      uniquePages.set(entry.page, entry);
+    const key = `${entryBook(entry)}:${entry.page}`;
+    if (!uniquePages.has(key)) {
+      uniquePages.set(key, entry);
     }
   });
 

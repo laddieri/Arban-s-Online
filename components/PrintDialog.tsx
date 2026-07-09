@@ -6,6 +6,7 @@ import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/u
 interface PrintDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  bookId?: string;
   currentPage: number;
   totalPages: number;
   baseUrl: string;
@@ -18,6 +19,7 @@ interface PrintDialogProps {
 export default function PrintDialog({
   isOpen,
   onClose,
+  bookId = 'arban',
   currentPage,
   totalPages,
   baseUrl,
@@ -77,7 +79,7 @@ export default function PrintDialog({
     const imagePageNum = pageNum + pageOffset;
     const paddedNum = formatPageNumber(imagePageNum);
     if (useImageProxy) {
-      return `/api/image/${paddedNum}`;
+      return `/api/image/${paddedNum}?book=${bookId}`;
     }
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };

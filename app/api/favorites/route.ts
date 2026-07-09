@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
+import { isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
 
 // GET - List all favorites for the current user
 export async function GET(request: NextRequest) {
@@ -51,12 +52,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
+    if (typeof bookId !== 'string' || !isValidBookId(bookId)) {
+      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
+    }
+
     // Insert favorite (will fail if duplicate due to unique constraint)
     const { data, error } = await supabase
       .from('user_favorites')
       .insert({
         user_id: user.id,
         page_number,
+        book_id: bookId,
       })
       .select()
       .single();
@@ -107,11 +114,17 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const deleteBookId = body.book_id ?? DEFAULT_BOOK_ID;
+    if (typeof deleteBookId !== 'string' || !isValidBookId(deleteBookId)) {
+      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
+    }
+
     // Delete favorite
     const { error } = await supabase
       .from('user_favorites')
       .delete()
       .eq('user_id', user.id)
+      .eq('book_id', deleteBookId)
       .eq('page_number', page_number);
 
     if (error) {

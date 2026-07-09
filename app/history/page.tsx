@@ -16,6 +16,8 @@ import {
 } from '@/utils/pageHistory';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 import { appConfig } from '@/config/app.config';
+import { getBook, DEFAULT_BOOK_ID } from '@/config/books';
+import { entryBook } from '@/utils/pageHistory';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -62,10 +64,10 @@ export default function HistoryPage() {
     }
   }, [selectedDate, allHistory]);
 
-  // Navigate to a page
-  const handlePageClick = (page: number) => {
-    // Navigate to home page with the page number as a query parameter
-    router.push(`/?page=${page}`);
+  // Navigate to a page in the viewer
+  const handlePageClick = (page: number, bookId: string = DEFAULT_BOOK_ID) => {
+    const bookParam = bookId === DEFAULT_BOOK_ID ? '' : `book=${bookId}&`;
+    router.push(`/?${bookParam}page=${page}`);
   };
 
   // Clear all history
@@ -84,12 +86,14 @@ export default function HistoryPage() {
   };
 
   // Get thumbnail URL for a page (same URL scheme as ImageViewer)
-  const getThumbnailUrl = (page: number): string => {
-    const adjustedPage = (page + appConfig.pageOffset).toString().padStart(3, '0');
+  const getThumbnailUrl = (page: number, bookId: string = DEFAULT_BOOK_ID): string => {
+    const book = getBook(bookId);
+    const adjustedPage = (page + book.pageOffset).toString().padStart(3, '0');
     if (appConfig.useImageProxy) {
-      return `/api/image/${adjustedPage}`;
+      return `/api/image/${adjustedPage}?book=${book.id}`;
     }
-    return `${appConfig.imageBaseUrl}/page-${adjustedPage}.${appConfig.imageFormat}`;
+    const prefix = book.imagePrefix ? `${book.imagePrefix}/` : '';
+    return `${appConfig.imageBaseUrl}/${prefix}page-${adjustedPage}.${appConfig.imageFormat}`;
   };
 
   return (
@@ -205,13 +209,15 @@ export default function HistoryPage() {
               <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                 Most Practiced
               </div>
-              {stats.topPages.slice(0, 3).map(({ page, count }) => (
+              {stats.topPages.slice(0, 3).map(({ book, page, count }) => (
                 <button
-                  key={page}
-                  onClick={() => handlePageClick(page)}
+                  key={`${book}-${page}`}
+                  onClick={() => handlePageClick(page, book)}
                   className="w-full flex justify-between items-center text-sm py-0.5 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
                 >
-                  <span>Page {formatDisplayPageNumber(page, appConfig.pageOffset)}</span>
+                  <span>
+                    {book !== DEFAULT_BOOK_ID ? `${getBook(book).shortTitle} ` : ''}Page {formatDisplayPageNumber(page, getBook(book).pageOffset)}
+                  </span>
                   <span className="tabular-nums text-gray-500 dark:text-gray-400">{count}×</span>
                 </button>
               ))}
@@ -245,15 +251,15 @@ export default function HistoryPage() {
                     <div className="space-y-4">
                       {pagesForSelectedDate.map((entry, index) => (
                         <div
-                          key={`${entry.page}-${entry.timestamp}-${index}`}
+                          key={`${entryBook(entry)}-${entry.page}-${entry.timestamp}-${index}`}
                           className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition cursor-pointer"
-                          onClick={() => handlePageClick(entry.page)}
+                          onClick={() => handlePageClick(entry.page, entryBook(entry))}
                         >
                           {/* Thumbnail */}
                           <div className="flex-shrink-0 w-20 h-28 bg-gray-200 dark:bg-gray-600 rounded overflow-hidden">
                             <img
-                              src={getThumbnailUrl(entry.page)}
-                              alt={`Page ${formatDisplayPageNumber(entry.page, appConfig.pageOffset)}`}
+                              src={getThumbnailUrl(entry.page, entryBook(entry))}
+                              alt={`Page ${formatDisplayPageNumber(entry.page, getBook(entryBook(entry)).pageOffset)}`}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
@@ -265,7 +271,7 @@ export default function HistoryPage() {
                           {/* Page Info */}
                           <div className="flex-1">
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                              Page {formatDisplayPageNumber(entry.page, appConfig.pageOffset)}
+                              {entryBook(entry) !== DEFAULT_BOOK_ID ? `${getBook(entryBook(entry)).shortTitle} - ` : ''}Page {formatDisplayPageNumber(entry.page, getBook(entryBook(entry)).pageOffset)}
                             </h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                               Viewed at {formatTime(entry.timestamp)}
