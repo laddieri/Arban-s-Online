@@ -66,14 +66,22 @@ function makePagePng(): Buffer {
   ]);
 }
 
+const TEST_BOOK_DIR = path.join(IMAGE_DIR, 'testbook');
+const TEST_BOOK_PAGES = 23; // totalPages 20 + offset 2, images page-000..022
+
 export default function globalSetup() {
   mkdirSync(IMAGE_DIR, { recursive: true });
-  if (existsSync(IMAGE_DIR) && readdirSync(IMAGE_DIR).length >= PAGE_COUNT) {
-    return; // already generated
-  }
+  mkdirSync(TEST_BOOK_DIR, { recursive: true });
   const png = makePagePng();
-  for (let i = 0; i < PAGE_COUNT; i++) {
-    writeFileSync(path.join(IMAGE_DIR, `page-${String(i).padStart(3, '0')}.png`), png);
+  if (readdirSync(IMAGE_DIR).length < PAGE_COUNT + 1) {
+    for (let i = 0; i < PAGE_COUNT; i++) {
+      writeFileSync(path.join(IMAGE_DIR, `page-${String(i).padStart(3, '0')}.png`), png);
+    }
   }
-  console.log(`generated ${PAGE_COUNT} test page images in ${IMAGE_DIR}`);
+  if (readdirSync(TEST_BOOK_DIR).length < TEST_BOOK_PAGES) {
+    for (let i = 0; i < TEST_BOOK_PAGES; i++) {
+      writeFileSync(path.join(TEST_BOOK_DIR, `page-${String(i).padStart(3, '0')}.png`), png);
+    }
+  }
+  console.log(`test page images ready in ${IMAGE_DIR} (+ testbook/)`);
 }

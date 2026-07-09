@@ -7,10 +7,11 @@ interface AddToListModalProps {
   isOpen: boolean;
   onClose: () => void;
   pageNumber: number;
+  bookId?: string;
   onSuccess?: () => void;
 }
 
-export default function AddToListModal({ isOpen, onClose, pageNumber, onSuccess }: AddToListModalProps) {
+export default function AddToListModal({ isOpen, onClose, pageNumber, bookId = 'arban', onSuccess }: AddToListModalProps) {
   const [lists, setLists] = useState<UserList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string>('');
   const [title, setTitle] = useState('');
@@ -101,6 +102,7 @@ export default function AddToListModal({ isOpen, onClose, pageNumber, onSuccess 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          book_id: bookId,
           list_id: selectedListId,
           page_number: pageNumber,
           title: title.trim() || undefined,

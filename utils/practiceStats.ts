@@ -1,4 +1,4 @@
-import { PageHistoryEntry, toLocalDateKey } from './pageHistory';
+import { PageHistoryEntry, toLocalDateKey, entryBook } from './pageHistory';
 
 export interface PracticeStats {
   /** Consecutive practice days ending today (or yesterday, if today is still pending) */
@@ -8,7 +8,7 @@ export interface PracticeStats {
   /** Distinct pages ever viewed */
   totalUniquePages: number;
   /** Most-viewed pages, by history entry count */
-  topPages: { page: number; count: number }[];
+  topPages: { book: string; page: number; count: number }[];
 }
 
 export function computePracticeStats(
@@ -36,12 +36,16 @@ export function computePracticeStats(
     day.setDate(day.getDate() - 1);
   }
 
-  const counts = new Map<number, number>();
+  const counts = new Map<string, number>();
   for (const entry of history) {
-    counts.set(entry.page, (counts.get(entry.page) ?? 0) + 1);
+    const key = `${entryBook(entry)}:${entry.page}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   const topPages = [...counts.entries()]
-    .map(([page, count]) => ({ page, count }))
+    .map(([key, count]) => {
+      const sep = key.indexOf(':');
+      return { book: key.slice(0, sep), page: Number(key.slice(sep + 1)), count };
+    })
     .sort((a, b) => b.count - a.count || a.page - b.page)
     .slice(0, 5);
 

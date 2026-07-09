@@ -62,10 +62,22 @@ describe('computePracticeStats', () => {
     const s = computePracticeStats(history, NOW);
     expect(s.totalUniquePages).toBe(3);
     expect(s.topPages).toEqual([
-      { page: 100, count: 3 },
-      { page: 200, count: 2 },
-      { page: 300, count: 1 },
+      { book: 'arban', page: 100, count: 3 },
+      { book: 'arban', page: 200, count: 2 },
+      { book: 'arban', page: 300, count: 1 },
     ]);
+  });
+
+  it('tracks the same page number in different books separately', () => {
+    const history = [
+      onDay(0, 50),
+      onDay(1, 50),
+      { ...onDay(0, 50, 15), book: 'charlier' },
+    ];
+    const s = computePracticeStats(history, NOW);
+    expect(s.totalUniquePages).toBe(2);
+    expect(s.topPages[0]).toEqual({ book: 'arban', page: 50, count: 2 });
+    expect(s.topPages[1]).toEqual({ book: 'charlier', page: 50, count: 1 });
   });
 
   it('limits top pages to five', () => {

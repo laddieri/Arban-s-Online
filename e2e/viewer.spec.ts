@@ -13,11 +13,18 @@ test.describe('reading position', () => {
 
   test('navigation syncs the URL and persists the last page', async ({ page }) => {
     await page.goto('/');
-    await expect(pageInput(page)).toHaveValue('i');
+    await expect(page).toHaveURL(/page=-7/);
+    // Interact through the page input first: a keypress in the very first
+    // instants after load can be swallowed while hydration settles, so
+    // establish interactivity before testing the keyboard shortcuts
+    await pageInput(page).fill('50');
+    await expect(page).toHaveURL(/page=50/);
+    await page.locator('#image-container').click(); // move focus off the input
     await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await expect(page).toHaveURL(/page=-5/);
-    expect(await page.evaluate(() => localStorage.getItem('arbans_last_page'))).toBe('-5');
+    await expect(page).toHaveURL(/page=51/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(page).toHaveURL(/page=50/);
+    expect(await page.evaluate(() => localStorage.getItem('arbans_last_page'))).toBe('50');
   });
 
   test('reloading a bare / resumes at the last page read', async ({ page }) => {

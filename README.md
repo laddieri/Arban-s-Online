@@ -114,6 +114,28 @@ To find the correct page numbers:
 3. Note the page number shown in the navigation bar
 4. Update the `sections` array in `components/TableOfContents.tsx`
 
+## Adding Another Method Book
+
+The viewer supports multiple public-domain books. To add one (e.g. the
+Charlier etudes):
+
+1. **Convert the PDF to page images** with `scripts/convert-pdf.py`, named
+   `page-000` onward (front matter first, so display page 1 = image
+   `page-(offset)`).
+2. **Upload the images to your bucket under a prefix**, e.g.
+   `charlier/page-000.webp` - the Arban's images stay at the bucket root.
+3. **Extract the table of contents** with `scripts/pdf-extract.py` +
+   `scripts/extract-exercise-titles.mjs` (OCR pipeline; see those files'
+   headers), and write the sections data.
+4. **Register the book in `config/books.ts`** with its id, title, page count,
+   offset, image prefix, and sections. The viewer, search, history, print,
+   and the sidebar book switcher pick it up automatically.
+5. **Run the migration** `lib/supabase/migrations/004_add_book_id.sql` once
+   (it scopes history/favorites/lists/videos to a book).
+
+Verify the edition you scan is actually public domain - first editions
+usually are; later revised editions often carry their own copyright.
+
 ## Project Structure
 
 ```

@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuthUser } from '@/hooks/useAuthUser';
 
 interface VideoSubmissionFormProps {
+  bookId?: string;
   currentPage: number;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
 export default function VideoSubmissionForm({
+  bookId = 'arban',
   currentPage,
   onClose,
   onSuccess,
@@ -68,7 +70,7 @@ export default function VideoSubmissionForm({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, book_id: bookId }),
       });
 
       const data = await response.json();

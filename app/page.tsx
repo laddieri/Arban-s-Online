@@ -9,12 +9,14 @@ import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
 import { addPageToHistoryDBDelayed } from '@/utils/pageHistory';
 import { getMinPage } from '@/utils/pageFormat';
+import { Book, getBook, isValidBookId, bookImageBaseUrl, DEFAULT_BOOK_ID } from '@/config/books';
 
-const LAST_PAGE_KEY = 'arbans_last_page';
-const MIN_PAGE = getMinPage(appConfig.pageOffset);
+// The default book keeps the legacy key so existing readers resume correctly
+const lastPageKey = (bookId: string) =>
+  bookId === DEFAULT_BOOK_ID ? 'arbans_last_page' : `arbans_last_page:${bookId}`;
 
-function clampPage(page: number): number {
-  return Math.min(Math.max(page, MIN_PAGE), appConfig.totalPages);
+function clampPage(page: number, book: Book): number {
+  return Math.min(Math.max(page, getMinPage(book.pageOffset)), book.totalPages);
 }
 
 // iPadOS 13+ reports as macOS in the user agent; touch points distinguish it
@@ -27,7 +29,9 @@ function isIOSDevice(): boolean {
 
 function HomeContent() {
   const searchParams = useSearchParams();
-  const [currentPage, setCurrentPage] = useState(MIN_PAGE); // Start with cover page (Roman numeral i)
+  const [bookId, setBookId] = useState(DEFAULT_BOOK_ID);
+  const book = getBook(bookId);
+  const [currentPage, setCurrentPage] = useState(() => getMinPage(getBook(DEFAULT_BOOK_ID).pageOffset)); // cover page (Roman numeral i)
   const [sidebarOpen, setSidebarOpen] = useState(false); // Opened on desktop after mount; stays closed on mobile
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
@@ -35,44 +39,60 @@ function HomeContent() {
   const cancelHistoryTimerRef = useRef<(() => void) | null>(null);
   const restoredRef = useRef(false);
 
-  // Navigate to a page: clamp to valid range, remember it, and keep the URL shareable
-  const navigateToPage = useCallback((page: number) => {
-    const clamped = clampPage(page);
+  // Navigate to a book/page: clamp to the book's range, remember the position,
+  // and keep the URL shareable (?book= is omitted for the default book so all
+  // pre-multi-book links keep working)
+  const navigateTo = useCallback((targetBookId: string, page: number) => {
+    const targetBook = getBook(targetBookId);
+    const clamped = clampPage(page, targetBook);
+    setBookId(targetBook.id);
     setCurrentPage(clamped);
     try {
-      localStorage.setItem(LAST_PAGE_KEY, String(clamped));
+      localStorage.setItem(lastPageKey(targetBook.id), String(clamped));
     } catch {
       // localStorage unavailable (e.g. private browsing); skip persistence
     }
     const url = new URL(window.location.href);
+    if (targetBook.id === DEFAULT_BOOK_ID) {
+      url.searchParams.delete('book');
+    } else {
+      url.searchParams.set('book', targetBook.id);
+    }
     url.searchParams.set('page', String(clamped));
     window.history.replaceState(null, '', url);
   }, []);
 
-  // On load: use the ?page= URL param if present (e.g. shared links, history
-  // navigation), otherwise resume from the last page read
+  // Last page read in a book, or its cover if never opened
+  const resumePageFor = (targetBookId: string): number => {
+    try {
+      const saved = parseInt(localStorage.getItem(lastPageKey(targetBookId)) ?? '', 10);
+      if (!isNaN(saved)) return saved;
+    } catch {
+      // localStorage unavailable; fall through to the cover page
+    }
+    return getMinPage(getBook(targetBookId).pageOffset);
+  };
+
+  // On load: use the ?book=/?page= URL params if present (shared links,
+  // history navigation), otherwise resume from the last page read
   useEffect(() => {
+    const bookParam = searchParams.get('book');
+    const targetBookId = bookParam && isValidBookId(bookParam) ? bookParam : DEFAULT_BOOK_ID;
     const pageParam = searchParams.get('page');
     if (pageParam) {
       const page = parseInt(pageParam, 10);
       if (!isNaN(page)) {
         restoredRef.current = true;
-        navigateToPage(page);
+        navigateTo(targetBookId, page);
         return;
       }
     }
     if (!restoredRef.current) {
       restoredRef.current = true;
-      try {
-        const saved = parseInt(localStorage.getItem(LAST_PAGE_KEY) ?? '', 10);
-        if (!isNaN(saved)) {
-          navigateToPage(saved);
-        }
-      } catch {
-        // localStorage unavailable; start from the cover page
-      }
+      navigateTo(targetBookId, resumePageFor(targetBookId));
     }
-  }, [searchParams, navigateToPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, navigateTo]);
 
   // Open the sidebar by default on desktop only; on mobile it would cover
   // the whole page, so it stays closed until the user opens it
@@ -91,8 +111,8 @@ function HomeContent() {
     };
   }, []);
 
-  const handlePageChange = (page: number) => {
-    navigateToPage(page);
+  const handlePageChange = (page: number, targetBookId: string = bookId) => {
+    navigateTo(targetBookId, page);
 
     // Cancel any pending history timer from the previous page
     if (cancelHistoryTimerRef.current) {
@@ -100,12 +120,17 @@ function HomeContent() {
     }
 
     // Add page to history with 30-second delay (only recorded if user stays on page)
-    cancelHistoryTimerRef.current = addPageToHistoryDBDelayed(page);
+    cancelHistoryTimerRef.current = addPageToHistoryDBDelayed(page, targetBookId);
 
     // Close sidebar on mobile when a page is selected
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
+  };
+
+  // Switching books resumes wherever the reader left off in that book
+  const handleBookChange = (targetBookId: string) => {
+    handlePageChange(resumePageFor(targetBookId), targetBookId);
   };
 
   // Fullscreen toggle function
@@ -161,11 +186,10 @@ function HomeContent() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Go to a random exercise page (skip first 10 pages which are intro/contents)
+  // Go to a random exercise page in the current book (skips intro/contents)
   const goToRandomExercise = () => {
-    const minExercisePage = 10; // Skip cover, intro, table of contents
-    const maxPage = appConfig.totalPages;
-    const randomPage = Math.floor(Math.random() * (maxPage - minExercisePage + 1)) + minExercisePage;
+    const { minExercisePage, totalPages } = book;
+    const randomPage = Math.floor(Math.random() * (totalPages - minExercisePage + 1)) + minExercisePage;
     handlePageChange(randomPage);
   };
 
@@ -195,10 +219,10 @@ function HomeContent() {
               </svg>
             </button>
             <h1 className="text-xl md:text-2xl font-bold hidden sm:block">
-              Arban's Complete Method for Trumpet/Cornet
+              {book.title}
             </h1>
             <h1 className="text-xl font-bold sm:hidden">
-              Arban's Method
+              {book.shortTitle}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -238,6 +262,8 @@ function HomeContent() {
           } absolute inset-y-0 left-0 z-30 w-80 transition-transform duration-300 ease-in-out`}
         >
           <TableOfContents
+            book={book}
+            onBookChange={handleBookChange}
             onPageSelect={handlePageChange}
             currentPage={currentPage}
           />
@@ -254,12 +280,13 @@ function HomeContent() {
         {/* Image Viewer */}
         <main className="flex-1 overflow-hidden">
           <ImageViewer
-            baseUrl={appConfig.imageBaseUrl}
-            totalPages={appConfig.totalPages}
+            bookId={book.id}
+            baseUrl={bookImageBaseUrl(book)}
+            totalPages={book.totalPages}
             currentPage={currentPage}
             onPageChange={handlePageChange}
             imageFormat={appConfig.imageFormat}
-            pageOffset={appConfig.pageOffset}
+            pageOffset={book.pageOffset}
             useImageProxy={appConfig.useImageProxy}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}

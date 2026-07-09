@@ -11,6 +11,7 @@ import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/u
 import { ExerciseVideo, getVideosForPage } from '@/config/exerciseVideos';
 
 interface ImageViewerProps {
+  bookId: string;
   baseUrl: string;
   totalPages: number;
   currentPage: number;
@@ -30,6 +31,7 @@ const ZOOM_STEP = 0.1;
 const NIGHT_MODE_KEY = 'arbans_night_mode';
 
 export default function ImageViewer({
+  bookId,
   baseUrl,
   totalPages,
   currentPage,
@@ -167,9 +169,9 @@ export default function ImageViewer({
   // Fetch videos for current page from API and merge with config videos
   const refreshVideos = useCallback(async () => {
     setVideosLoading(true);
-    const configVideos = getVideosForPage(currentPage);
+    const configVideos = bookId === 'arban' ? getVideosForPage(currentPage) : [];
     try {
-      const response = await fetch(`/api/videos/${currentPage}`);
+      const response = await fetch(`/api/videos/${currentPage}?book=${bookId}`);
       if (response.ok) {
         const data = await response.json();
         const apiVideos: ExerciseVideo[] = data.videos || [];
@@ -186,7 +188,7 @@ export default function ImageViewer({
     } finally {
       setVideosLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, bookId]);
 
   useEffect(() => {
     refreshVideos();
@@ -386,7 +388,7 @@ export default function ImageViewer({
     const imagePageNum = pageNum + pageOffset;
     const paddedNum = formatPageNumber(imagePageNum);
     if (useImageProxy) {
-      return `/api/image/${paddedNum}`;
+      return `/api/image/${paddedNum}?book=${bookId}`;
     }
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };
@@ -767,6 +769,7 @@ export default function ImageViewer({
       <PrintDialog
         isOpen={isPrintDialogOpen}
         onClose={() => setIsPrintDialogOpen(false)}
+        bookId={bookId}
         currentPage={currentPage}
         totalPages={totalPages}
         baseUrl={baseUrl}
@@ -791,6 +794,7 @@ export default function ImageViewer({
       {/* Video Submission Form */}
       {isSubmitFormOpen && (
         <VideoSubmissionForm
+          bookId={bookId}
           currentPage={currentPage}
           onClose={() => setIsSubmitFormOpen(false)}
           onSuccess={refreshVideos}
@@ -801,6 +805,7 @@ export default function ImageViewer({
       <AddToListModal
         isOpen={isAddToListModalOpen}
         onClose={() => setIsAddToListModalOpen(false)}
+        bookId={bookId}
         pageNumber={currentPage}
       />
     </div>
