@@ -1,10 +1,11 @@
 import { Section, sections as arbanSections } from './tocSections';
+import { charlierSections } from './charlierSections';
 import { appConfig } from './app.config';
 
 // Registry of method books available in the viewer. To add a book:
-// 1. Convert its PDF to page images (scripts/convert-pdf.py) and upload them
-//    to the image bucket under the book's imagePrefix
-//    (e.g. charlier/page-001.webp).
+// 1. Convert its PDF to page images and upload them to the image bucket
+//    under the book's imagePrefix, 0-indexed from the first scanned page:
+//    charlier/page-000.webp (cover) .. charlier/page-071.webp.
 // 2. Add its TOC sections (extract titles with scripts/pdf-extract.py +
 //    scripts/extract-exercise-titles.mjs).
 // 3. Register it here - the viewer, search, history, and print pick it up.
@@ -36,8 +37,21 @@ export const books: Book[] = [
     minExercisePage: 10,
     sections: arbanSections,
   },
-  // Charlier "36 Etudes Transcendantes" registers here once its images are
-  // uploaded under the 'charlier/' prefix and its TOC data is extracted.
+  {
+    id: 'charlier',
+    title: 'Charlier — 36 Études Transcendantes',
+    shortTitle: 'Charlier Études',
+    imagePrefix: 'charlier',
+    // 72 scanned pages (charlier/page-000.webp .. charlier/page-071.webp).
+    // The book paginates continuously from the cover (étude 1 is on the
+    // printed page 4), so there are no separately-numbered preface pages:
+    // pageOffset -1 makes the displayed page number equal the printed page
+    // number (display N -> image page-(N-1)), and the minimum page is 1.
+    totalPages: 72,
+    pageOffset: -1,
+    minExercisePage: 4,
+    sections: charlierSections,
+  },
 ];
 
 // A second book for exercising multi-book behavior in e2e tests.
