@@ -76,7 +76,9 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        // s-maxage lets Vercel's edge cache serve repeat requests without
+        // invoking this function (max-age alone only caches in the browser)
+        'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
         'X-Content-Type-Options': 'nosniff',
       },
     });
