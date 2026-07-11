@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
-import { isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
+import { DEFAULT_BOOK_ID } from '@/config/books';
+import { isValidBookIdServer } from '@/lib/books/server';
 import type { UserListItem, UserListItemInsert } from '@/lib/supabase/types';
 
 // GET /api/list-items - Get all items for a specific list or all items for user
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   const { list_id, page_number, title, description } = body;
 
   const bookId = body.book_id ?? DEFAULT_BOOK_ID;
-  if (typeof bookId !== 'string' || !isValidBookId(bookId)) {
+  if (typeof bookId !== 'string' || !(await isValidBookIdServer(bookId))) {
     return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
   }
 

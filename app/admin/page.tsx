@@ -213,12 +213,20 @@ export default function AdminPage() {
                 Manage video submissions
               </p>
             </div>
-            <Link
-              href="/"
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium"
-            >
-              Back to Home
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/admin/books"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+              >
+                Manage Books
+              </Link>
+              <Link
+                href="/"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium"
+              >
+                Back to Home
+              </Link>
+            </div>
           </div>
         </div>
       </header>

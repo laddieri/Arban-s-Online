@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
-import { isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
+import { DEFAULT_BOOK_ID } from '@/config/books';
+import { isValidBookIdServer } from '@/lib/books/server';
 
 // GET - List page history for the current user
 export async function GET(request: NextRequest) {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     const bookId = body.book_id ?? DEFAULT_BOOK_ID;
-    if (typeof bookId !== 'string' || !isValidBookId(bookId)) {
+    if (typeof bookId !== 'string' || !(await isValidBookIdServer(bookId))) {
       return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
     }
 

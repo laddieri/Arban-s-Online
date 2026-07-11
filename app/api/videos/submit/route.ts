@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
 import { extractYouTubeVideoId } from '@/utils/youtube';
-import { getBook, isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
+import { DEFAULT_BOOK_ID } from '@/config/books';
+import { getBookServer } from '@/lib/books/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,10 +14,10 @@ export async function POST(request: NextRequest) {
     const { page_number, video_id, title, performer, description } = body;
 
     const bookId = body.book_id ?? DEFAULT_BOOK_ID;
-    if (typeof bookId !== 'string' || !isValidBookId(bookId)) {
+    const book = typeof bookId === 'string' ? await getBookServer(bookId) : null;
+    if (!book) {
       return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
     }
-    const book = getBook(bookId);
 
     // Validation
     if (page_number === undefined || !video_id || !title) {

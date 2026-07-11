@@ -9,7 +9,9 @@ import ListsPanel from '@/components/ListsPanel';
 import { appConfig } from '@/config/app.config';
 import { addPageToHistoryDBDelayed } from '@/utils/pageHistory';
 import { getMinPage } from '@/utils/pageFormat';
-import { Book, getBook, isValidBookId, bookImageBaseUrl, DEFAULT_BOOK_ID } from '@/config/books';
+import { bookImageBaseUrl, type Book } from '@/config/books';
+import { getBook, isValidBookId, DEFAULT_BOOK_ID } from '@/lib/books/registry';
+import { useBooks } from '@/hooks/useBooks';
 
 // The default book keeps the legacy key so existing readers resume correctly
 const lastPageKey = (bookId: string) =>
@@ -73,10 +75,18 @@ function HomeContent() {
     return getMinPage(getBook(targetBookId).pageOffset);
   };
 
+  // Runtime books (added via the admin UI) merge into the registry shortly
+  // after mount; booksLoaded gates deep-link resolution for their ids
+  const { isLoaded: booksLoaded } = useBooks();
+
   // On load: use the ?book=/?page= URL params if present (shared links,
   // history navigation), otherwise resume from the last page read
   useEffect(() => {
     const bookParam = searchParams.get('book');
+    // A ?book= id we don't recognize yet may be a runtime book still being
+    // fetched - wait for the registry before falling back to the default,
+    // so deep links to uploaded books resolve instead of being rewritten
+    if (bookParam && !isValidBookId(bookParam) && !booksLoaded) return;
     const targetBookId = bookParam && isValidBookId(bookParam) ? bookParam : DEFAULT_BOOK_ID;
     const pageParam = searchParams.get('page');
     if (pageParam) {
@@ -92,7 +102,7 @@ function HomeContent() {
       navigateTo(targetBookId, resumePageFor(targetBookId));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, navigateTo]);
+  }, [searchParams, navigateTo, booksLoaded]);
 
   // Open the sidebar by default on desktop only; on mobile it would cover
   // the whole page, so it stays closed until the user opens it
@@ -285,7 +295,7 @@ function HomeContent() {
             totalPages={book.totalPages}
             currentPage={currentPage}
             onPageChange={handlePageChange}
-            imageFormat={appConfig.imageFormat}
+            imageFormat={book.imageFormat ?? appConfig.imageFormat}
             pageOffset={book.pageOffset}
             useImageProxy={appConfig.useImageProxy}
             isFullscreen={isFullscreen}

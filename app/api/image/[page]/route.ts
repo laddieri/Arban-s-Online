@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBook, isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
+import { DEFAULT_BOOK_ID } from '@/config/books';
+import { getBookServer } from '@/lib/books/server';
 
 // Proxy images through the app to avoid school filter issues
 // Images will be served from /api/image/[page]?book=<id> instead of the external CDN
@@ -11,7 +12,6 @@ export async function GET(
   const { page } = await params;
 
   const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL;
-  const imageFormat = process.env.NEXT_PUBLIC_IMAGE_FORMAT || 'webp';
 
   if (!imageBaseUrl) {
     return NextResponse.json(
@@ -21,10 +21,10 @@ export async function GET(
   }
 
   const bookParam = request.nextUrl.searchParams.get('book') ?? DEFAULT_BOOK_ID;
-  if (!isValidBookId(bookParam)) {
+  const book = await getBookServer(bookParam);
+  if (!book) {
     return NextResponse.json({ error: 'Unknown book' }, { status: 404 });
   }
-  const book = getBook(bookParam);
 
   // Validate page parameter (image file number, offset already applied)
   if (!/^\d{1,3}$/.test(page)) {
@@ -43,6 +43,7 @@ export async function GET(
     );
   }
 
+  const imageFormat = book.imageFormat ?? process.env.NEXT_PUBLIC_IMAGE_FORMAT ?? 'webp';
   const paddedPage = page.padStart(3, '0');
   const prefix = book.imagePrefix ? `${book.imagePrefix}/` : '';
   const imageUrl = `${imageBaseUrl}/${prefix}page-${paddedPage}.${imageFormat}`;
