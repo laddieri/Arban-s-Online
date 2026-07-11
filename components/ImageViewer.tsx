@@ -27,6 +27,9 @@ interface ImageViewerProps {
   onToggleFullscreen?: () => void;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
+  /** Deep link from /videos: open the overlay on this video and start
+   *  playback once the page's video list contains it */
+  autoplayVideoId?: string | null;
 }
 
 const MIN_ZOOM = 0.5;
@@ -46,7 +49,8 @@ export default function ImageViewer({
   isFullscreen = false,
   onToggleFullscreen,
   sidebarOpen = false,
-  onToggleSidebar
+  onToggleSidebar,
+  autoplayVideoId = null
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -179,14 +183,22 @@ export default function ImageViewer({
     // Don't reset zoom - keep the current zoom level when changing pages
   }, [currentPage]);
 
-  // Fetch videos for current page from API and merge with config videos
+  // Fetch videos for current page from API and merge with config videos.
+  // Rapid page changes can leave multiple requests in flight; only the
+  // latest one may write state, or a slow stale response would overwrite
+  // the current page's videos.
+  const videosRequestRef = useRef(0);
   const refreshVideos = useCallback(async () => {
+    const requestId = ++videosRequestRef.current;
+    const isCurrent = () => videosRequestRef.current === requestId;
     setVideosLoading(true);
     const configVideos = bookId === 'arban' ? getVideosForPage(currentPage) : [];
     try {
       const response = await fetch(`/api/videos/${currentPage}?book=${bookId}`);
+      if (!isCurrent()) return;
       if (response.ok) {
         const data = await response.json();
+        if (!isCurrent()) return;
         const apiVideos: ExerciseVideo[] = data.videos || [];
         // Merge config videos with API videos, avoiding duplicates by videoId
         const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
@@ -197,15 +209,29 @@ export default function ImageViewer({
       }
     } catch (error) {
       console.error('Error fetching videos:', error);
-      setVideos(configVideos);
+      if (isCurrent()) setVideos(configVideos);
     } finally {
-      setVideosLoading(false);
+      if (isCurrent()) setVideosLoading(false);
     }
   }, [currentPage, bookId]);
 
   useEffect(() => {
     refreshVideos();
   }, [refreshVideos]);
+
+  // Open the overlay for a deep-linked video, then consume the URL param
+  // so later navigation and copied links don't re-trigger playback
+  const autoplayOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!autoplayVideoId || autoplayOpenedRef.current) return;
+    if (videos.some(v => v.videoId === autoplayVideoId)) {
+      autoplayOpenedRef.current = true;
+      setIsVideosOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('video');
+      window.history.replaceState(null, '', url);
+    }
+  }, [videos, autoplayVideoId]);
 
 
   // --- Zoom ---
@@ -888,6 +914,7 @@ export default function ImageViewer({
         isOpen={isVideosOpen}
         onClose={() => setIsVideosOpen(false)}
         videos={videos}
+        initialVideoId={autoplayVideoId}
       />
 
       {/* Video Submission Form */}

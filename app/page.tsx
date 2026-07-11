@@ -291,6 +291,7 @@ function HomeContent() {
         <main className="flex-1 overflow-hidden">
           <ImageViewer
             bookId={book.id}
+            autoplayVideoId={searchParams.get('video')}
             baseUrl={bookImageBaseUrl(book)}
             totalPages={book.totalPages}
             currentPage={currentPage}

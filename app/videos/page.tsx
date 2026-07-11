@@ -29,8 +29,6 @@ export default function RecentVideosPage() {
   const [videos, setVideos] = useState<RecentVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Facade pattern (same as the viewer overlay): thumbnails until played
-  const [playingId, setPlayingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/videos/recent')
@@ -43,6 +41,12 @@ export default function RecentVideosPage() {
   const viewerUrl = (video: RecentVideo) => {
     const bookParam = video.book === DEFAULT_BOOK_ID ? '' : `book=${video.book}&`;
     return `/?${bookParam}page=${video.page}`;
+  };
+
+  // Playing a video means practicing it: open the sheet music with the
+  // video overlay auto-playing (the viewer consumes the ?video= param)
+  const playInViewer = (video: RecentVideo) => {
+    router.push(`${viewerUrl(video)}&video=${video.videoId}`);
   };
 
   const pageLabel = (video: RecentVideo) => {
@@ -92,35 +96,25 @@ export default function RecentVideosPage() {
                 className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden flex flex-col"
               >
                 <div className="aspect-video bg-black relative">
-                  {playingId === video.id ? (
-                    <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${video.videoId}?autoplay=1`}
-                      className="w-full h-full border-0"
-                      title={video.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
+                  <button
+                    onClick={() => playInViewer(video)}
+                    className="group w-full h-full relative flex items-center justify-center"
+                    aria-label={`Play ${video.title}`}
+                    data-testid="video-facade"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
                     />
-                  ) : (
-                    <button
-                      onClick={() => setPlayingId(video.id)}
-                      className="group w-full h-full relative flex items-center justify-center"
-                      aria-label={`Play ${video.title}`}
-                      data-testid="video-facade"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`}
-                        alt=""
-                        className="absolute inset-0 w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                      <span className="relative flex items-center justify-center w-16 h-12 rounded-xl bg-black/70 group-hover:bg-red-600 transition-colors">
-                        <svg className="w-7 h-7 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </span>
-                    </button>
-                  )}
+                    <span className="relative flex items-center justify-center w-16 h-12 rounded-xl bg-black/70 group-hover:bg-red-600 transition-colors">
+                      <svg className="w-7 h-7 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </button>
                 </div>
                 <div className="p-4 flex-1 flex flex-col gap-1">
                   <h2 className="font-semibold text-gray-900 dark:text-gray-100 break-words">

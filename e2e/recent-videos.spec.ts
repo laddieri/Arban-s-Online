@@ -25,9 +25,16 @@ const MOCK_VIDEOS = [
   },
 ];
 
-test('lists recent videos with facade players and page links', async ({ page }) => {
+test('lists recent videos; playing one opens its sheet music with the video', async ({ page }) => {
   await page.route('**/api/videos/recent', route =>
     route.fulfill({ json: { videos: MOCK_VIDEOS } })
+  );
+  // The viewer fetches the target page's video list; it must contain the
+  // deep-linked video for the overlay to auto-open
+  await page.route(/\/api\/videos\/5\?book=testbook/, route =>
+    route.fulfill({
+      json: { videos: [{ videoId: 'abcdefghijk', title: 'Test Book Demo' }] },
+    })
   );
 
   await page.goto('/videos');
@@ -41,21 +48,25 @@ test('lists recent videos with facade players and page links', async ({ page }) 
   await expect(page.getByText('Alice Trumpet')).toBeVisible();
   await expect(page.getByRole('link', { name: "Arban's Method - Page 202" })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Test Book - Page 5' })).toBeVisible();
-
-  // Facades until played; play swaps in exactly one nocookie iframe
   await expect(page.locator('[data-testid="video-facade"]')).toHaveCount(2);
   await expect(page.locator('iframe')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Play Characteristic Study No. 1' }).click();
-  await expect(page.locator('iframe')).toHaveCount(1);
-  await expect(page.locator('iframe')).toHaveAttribute(
-    'src',
-    'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1'
-  );
 
-  // The page link deep-links into the right book in the viewer
-  await page.getByRole('link', { name: 'Test Book - Page 5' }).click();
+  // Play takes you to the sheet music with the video overlay playing
+  await page.getByRole('button', { name: 'Play Test Book Demo' }).click();
   await expect(page).toHaveURL(/book=testbook&page=5/);
   await expect(page.locator('h1').first()).toContainText('Test Book');
+  await expect(page.locator('#image-container img').first()).toHaveAttribute(
+    'src',
+    /testbook\/page-007\.png/
+  );
+  const iframe = page.locator('iframe');
+  await expect(iframe).toHaveCount(1);
+  await expect(iframe).toHaveAttribute(
+    'src',
+    'https://www.youtube-nocookie.com/embed/abcdefghijk?autoplay=1'
+  );
+  // The one-shot ?video= param is consumed after the overlay opens
+  await expect(page).not.toHaveURL(/video=/);
 });
 
 test('shows an empty state when no videos exist', async ({ page }) => {
