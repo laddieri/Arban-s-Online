@@ -72,3 +72,9 @@ export function getBook(id: string | null | undefined): Book {
 export function isValidBookId(id: string): boolean {
   return current.some(b => b.id === id);
 }
+
+/** True for books added at runtime (editable via the admin API), false for
+ *  compiled-in books and unknown ids. */
+export function isRuntimeBook(id: string): boolean {
+  return !staticBooks.some(b => b.id === id) && current.some(b => b.id === id);
+}

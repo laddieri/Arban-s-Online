@@ -7,6 +7,10 @@ import MetronomeOverlay from './MetronomeOverlay';
 import YouTubeVideosOverlay from './YouTubeVideosOverlay';
 import VideoSubmissionForm from './VideoSubmissionForm';
 import AddToListModal from './AddToListModal';
+import AddTocEntryModal from './AddTocEntryModal';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useBooks } from '@/hooks/useBooks';
+import { isRuntimeBook } from '@/lib/books/registry';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 import { ExerciseVideo, getVideosForPage } from '@/config/exerciseVideos';
 
@@ -28,7 +32,6 @@ interface ImageViewerProps {
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
-const NIGHT_MODE_KEY = 'arbans_night_mode';
 const TWO_PAGE_KEY = 'arbans_two_page';
 
 export default function ImageViewer({
@@ -48,10 +51,9 @@ export default function ImageViewer({
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [nightMode, setNightMode] = useState(false);
   // Two-page spread view: current page + the next one side by side, like an
   // open book. Available at every screen size (a phone in landscape on a
-  // music stand is a real use case); persisted like night mode.
+  // music stand is a real use case); persisted in localStorage.
   const [twoPageView, setTwoPageView] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
@@ -63,8 +65,11 @@ export default function ImageViewer({
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
   const { user } = useAuthUser();
+  const isAdmin = useIsAdmin();
+  useBooks(); // subscribe so isRuntimeBook(bookId) resolves once books load
   const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [isAddTocOpen, setIsAddTocOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -254,25 +259,13 @@ export default function ImageViewer({
     setZoomLevel(1);
   }, []);
 
-  // Night mode: invert the sheet music for reading in dark rooms
   useEffect(() => {
     try {
-      setNightMode(localStorage.getItem(NIGHT_MODE_KEY) === '1');
       setTwoPageView(localStorage.getItem(TWO_PAGE_KEY) === '1');
     } catch {
-      // localStorage unavailable; default to normal colors
+      // localStorage unavailable; default to single-page view
     }
   }, []);
-
-  const toggleNightMode = () => {
-    const next = !nightMode;
-    setNightMode(next);
-    try {
-      localStorage.setItem(NIGHT_MODE_KEY, next ? '1' : '0');
-    } catch {
-      // localStorage unavailable; the toggle still works for this session
-    }
-  };
 
   const toggleTwoPageView = () => {
     const next = !twoPageView;
@@ -548,7 +541,7 @@ export default function ImageViewer({
       <div
         ref={containerRef}
         className={`h-full overflow-auto ${
-          nightMode ? 'bg-gray-900' : 'bg-gray-100 dark:bg-gray-800'
+          'bg-gray-100 dark:bg-gray-800'
         } pb-52 lg:pb-16 image-viewer-scroll cursor-grab ${
           isPanning ? 'cursor-grabbing select-none' : ''
         }`}
@@ -629,7 +622,6 @@ export default function ImageViewer({
                 style={{
                   width: secondPage !== null ? '50%' : '100%',
                   maxWidth: 'none',
-                  ...(nightMode ? { filter: 'invert(1) hue-rotate(180deg)' } : {}),
                 }}
               />
               {secondPage !== null && (
@@ -641,7 +633,6 @@ export default function ImageViewer({
                   style={{
                     width: '50%',
                     maxWidth: 'none',
-                    ...(nightMode ? { filter: 'invert(1) hue-rotate(180deg)' } : {}),
                   }}
                 />
               )}
@@ -716,17 +707,6 @@ export default function ImageViewer({
               )}
             </button>
             <button
-              onClick={toggleNightMode}
-              className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
-                nightMode ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
-              }`}
-              title={nightMode ? 'Night mode on: restore normal page colors' : 'Night mode: invert page colors for dark rooms'}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            </button>
-            <button
               onClick={toggleTwoPageView}
               className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
                 twoPageView ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
@@ -746,6 +726,17 @@ export default function ImageViewer({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
             </button>
+            {isAdmin && isRuntimeBook(bookId) && (
+              <button
+                onClick={() => setIsAddTocOpen(true)}
+                className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                title="Add this page to the table of contents"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m3 7v6m3-3h-6" />
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setIsMetronomeOpen(!isMetronomeOpen)}
               className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
@@ -916,6 +907,15 @@ export default function ImageViewer({
         bookId={bookId}
         pageNumber={currentPage}
       />
+
+      {isAddTocOpen && (
+        <AddTocEntryModal
+          bookId={bookId}
+          page={currentPage}
+          pageOffset={pageOffset}
+          onClose={() => setIsAddTocOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -73,27 +73,65 @@ const TEST_BOOK_PAGES = 23; // totalPages 20 + offset 2, images page-000..022
 const TEST_PDF = path.join(IMAGE_DIR, 'test-book.pdf');
 const TEST_PDF_PAGES = 5;
 
-async function makeTestPdf() {
-  if (existsSync(TEST_PDF)) return;
+// Page images with a large title in the top strip, for the admin TOC
+// OCR-suggestion e2e test (served as the "ocrbook" test book's pages)
+const OCR_BOOK_DIR = path.join(IMAGE_DIR, 'ocrbook');
+const OCR_TITLES = ['STUDY No. 1', 'STUDY No. 2', 'STUDY No. 3'];
+
+async function makeBrowserAssets() {
+  const needPdf = !existsSync(TEST_PDF);
+  const needOcr = !existsSync(path.join(OCR_BOOK_DIR, 'page-002.png'));
+  if (!needPdf && !needOcr) return;
+
   const { chromium } = await import('@playwright/test');
   const browser = await chromium.launch({
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
   });
   const page = await browser.newPage();
-  const sections = Array.from(
-    { length: TEST_PDF_PAGES },
-    (_, i) => `<section><h1>Test PDF - page ${i + 1}</h1></section>`
-  ).join('');
-  await page.setContent(
-    `<style>
-      @page { size: 8.5in 11in; margin: 0; }
-      body { margin: 0; }
-      section { page-break-after: always; height: 11in; padding: 1in;
-                box-sizing: border-box; background: #f5ead0; font-size: 40px; }
-      section:last-child { page-break-after: auto; }
-    </style>${sections}`
-  );
-  await page.pdf({ path: TEST_PDF, preferCSSPageSize: true });
+
+  if (needPdf) {
+    const sections = Array.from(
+      { length: TEST_PDF_PAGES },
+      (_, i) => `<section><h1>Test PDF - page ${i + 1}</h1></section>`
+    ).join('');
+    await page.setContent(
+      `<style>
+        @page { size: 8.5in 11in; margin: 0; }
+        body { margin: 0; }
+        section { page-break-after: always; height: 11in; padding: 1in;
+                  box-sizing: border-box; background: #f5ead0; font-size: 40px; }
+        section:last-child { page-break-after: auto; }
+      </style>${sections}`
+    );
+    await page.pdf({ path: TEST_PDF, preferCSSPageSize: true });
+  }
+
+  if (needOcr) {
+    mkdirSync(OCR_BOOK_DIR, { recursive: true });
+    const dataUrls: string[] = await page.evaluate(titles => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 1035;
+      const ctx = canvas.getContext('2d')!;
+      return titles.map(title => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 800, 1035);
+        ctx.fillStyle = '#111111';
+        ctx.font = 'bold 44px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, 400, 90); // inside the top-20% OCR strip
+        for (let y = 400; y < 700; y += 60) ctx.fillRect(100, y, 600, 4);
+        return canvas.toDataURL('image/png');
+      });
+    }, OCR_TITLES);
+    dataUrls.forEach((url, i) => {
+      writeFileSync(
+        path.join(OCR_BOOK_DIR, `page-${String(i).padStart(3, '0')}.png`),
+        Buffer.from(url.split(',')[1], 'base64')
+      );
+    });
+  }
+
   await browser.close();
 }
 
@@ -111,6 +149,6 @@ export default async function globalSetup() {
       writeFileSync(path.join(TEST_BOOK_DIR, `page-${String(i).padStart(3, '0')}.png`), png);
     }
   }
-  await makeTestPdf();
-  console.log(`test page images ready in ${IMAGE_DIR} (+ testbook/, test-book.pdf)`);
+  await makeBrowserAssets();
+  console.log(`test page images ready in ${IMAGE_DIR} (+ testbook/, ocrbook/, test-book.pdf)`);
 }

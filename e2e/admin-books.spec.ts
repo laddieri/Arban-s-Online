@@ -80,3 +80,70 @@ test('public books API serves the compiled-in catalog', async ({ page }) => {
   expect(ids).toContain('arban');
   expect(ids).toContain('charlier');
 });
+
+// Read TOC editor rows as [title, page] pairs
+async function tocRowValues(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const rows = document.querySelectorAll('[data-testid="toc-rows"] > div');
+    return Array.from(rows).map(row => {
+      const inputs = row.querySelectorAll('input');
+      return [inputs[0]?.value ?? '', inputs[1]?.value ?? ''];
+    });
+  });
+}
+
+test('suggests TOC entries from the PDF text layer (create mode)', async ({ page }) => {
+  await page.route('**/api/admin/books', route =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { books: [] } })
+      : route.fallback()
+  );
+  await page.goto('/admin/books');
+  await page.setInputFiles('[data-testid="pdf-input"]', TEST_PDF);
+  await page.getByRole('button', { name: /Suggest from pages/ }).click();
+
+  // The generated PDF has a text layer, so this resolves near-instantly
+  await expect
+    .poll(async () => tocRowValues(page), { timeout: 30_000 })
+    .toEqual([
+      ['Test PDF - page 1', '1'],
+      ['Test PDF - page 2', '2'],
+      ['Test PDF - page 3', '3'],
+      ['Test PDF - page 4', '4'],
+      ['Test PDF - page 5', '5'],
+    ]);
+});
+
+test('suggests TOC entries by OCR of uploaded page images (edit mode)', async ({ page }) => {
+  test.setTimeout(180_000); // OCR worker boot + three pages
+  const ocrBook = {
+    id: 'ocrbook',
+    title: 'OCR Book (E2E Only)',
+    shortTitle: 'OCR Book',
+    imagePrefix: 'ocrbook',
+    totalPages: 3,
+    pageOffset: -1,
+    minExercisePage: 1,
+    sections: [],
+  };
+  await page.route('**/api/admin/books', route =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { books: [ocrBook] } })
+      : route.fallback()
+  );
+  await page.goto('/admin/books');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: /Suggest from pages/ }).click();
+  await expect(page.locator('[data-testid="scan-progress"]')).toBeVisible();
+
+  // tesseract reads the big printed titles off the generated pages
+  await expect
+    .poll(async () => tocRowValues(page), { timeout: 150_000 })
+    .toEqual([
+      [expect.stringContaining('STUDY'), '1'],
+      [expect.stringContaining('STUDY'), '2'],
+      [expect.stringContaining('STUDY'), '3'],
+    ]);
+  // Suggested rows carry a preview strip of the scanned heading
+  await expect(page.locator('[data-testid="toc-rows"] img').first()).toBeVisible();
+});

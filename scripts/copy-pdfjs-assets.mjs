@@ -25,4 +25,29 @@ cpSync(path.join(src, 'standard_fonts'), path.join(dest, 'standard_fonts'), {
 // cmaps: character maps, needed by some text-layer PDFs
 cpSync(path.join(src, 'cmaps'), path.join(dest, 'cmaps'), { recursive: true });
 
-console.log('pdf.js assets copied to public/pdfjs/');
+// tesseract.js runtime for the admin TOC "suggest titles" OCR (public/ocr/):
+// worker + the single-file wasm cores tesseract picks between + English data.
+// All fetched lazily, only when an admin runs the suggestion scan.
+const ocrDest = path.join(root, 'public', 'ocr');
+rmSync(ocrDest, { recursive: true, force: true });
+mkdirSync(ocrDest, { recursive: true });
+cpSync(
+  path.join(root, 'node_modules', 'tesseract.js', 'dist', 'worker.min.js'),
+  path.join(ocrDest, 'worker.min.js')
+);
+for (const core of [
+  'tesseract-core-lstm.wasm.js',
+  'tesseract-core-simd-lstm.wasm.js',
+  'tesseract-core-relaxedsimd-lstm.wasm.js',
+]) {
+  cpSync(
+    path.join(root, 'node_modules', 'tesseract.js-core', core),
+    path.join(ocrDest, core)
+  );
+}
+cpSync(
+  path.join(root, 'node_modules', '@tesseract.js-data', 'eng', '4.0.0', 'eng.traineddata.gz'),
+  path.join(ocrDest, 'eng.traineddata.gz')
+);
+
+console.log('pdf.js assets copied to public/pdfjs/, OCR assets to public/ocr/');
