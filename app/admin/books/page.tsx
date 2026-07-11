@@ -7,6 +7,8 @@ import type { Section } from '@/config/tocSections';
 import { loadRemoteBooks } from '@/lib/books/registry';
 import { validateBookPayload, slugFromTitle } from '@/utils/bookValidation';
 import { loadPdf, renderPageToBlob, detectWebpEncodeSupport } from '@/lib/pdfConvert';
+import { suggestTocFromPdf, suggestTocFromImages, SuggestController } from '@/lib/tocSuggest';
+import { getMinPage } from '@/utils/pageFormat';
 
 // How many page images upload in parallel. R2 handles far more, but the
 // browser tab is also rendering pages; 3 keeps memory flat on big books.
@@ -16,6 +18,8 @@ const UPLOAD_RETRIES = 3;
 interface TocRow {
   title: string;
   page: string; // kept as text while editing; validated on submit
+  /** Snapshot of the scanned page strip a suggestion came from (not saved) */
+  preview?: string;
 }
 
 type Phase =
@@ -58,8 +62,11 @@ export default function AdminBooksPage() {
   const [minExercisePage, setMinExercisePage] = useState('1');
   const [tocRows, setTocRows] = useState<TocRow[]>([]);
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
+  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [scan, setScan] = useState<{ done: number; total: number } | null>(null);
+  const [scanController, setScanController] = useState<SuggestController | null>(null);
 
-  const busy = phase.name !== 'idle' && phase.name !== 'done';
+  const busy = (phase.name !== 'idle' && phase.name !== 'done') || scan !== null;
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -84,6 +91,8 @@ export default function AdminBooksPage() {
 
   const resetForm = () => {
     setEditingId(null);
+    setEditingBook(null);
+    setScan(null);
     setPdfFile(null);
     setTitle('');
     setShortTitle('');
@@ -98,6 +107,7 @@ export default function AdminBooksPage() {
 
   const startEdit = (book: Book) => {
     setEditingId(book.id);
+    setEditingBook(book);
     setPdfFile(null);
     setTitle(book.title);
     setShortTitle(book.shortTitle);
@@ -184,6 +194,66 @@ export default function AdminBooksPage() {
         'Every page rendered blank - this PDF could not be converted. ' +
           'The uploaded images should not be published; nothing was registered.'
       );
+    }
+  };
+
+  // Scan the book's pages for headings and pre-fill the TOC editor.
+  // Create mode reads the chosen PDF (text layer when present, OCR
+  // otherwise); edit mode OCRs the already-uploaded page images.
+  const handleSuggestTitles = async () => {
+    setError(null);
+    if (tocRows.some(r => r.title.trim() !== '') &&
+        !confirm('Replace the current table-of-contents entries with scanned suggestions?')) {
+      return;
+    }
+
+    const controller: SuggestController = { cancelled: false };
+    setScanController(controller);
+    setScan({ done: 0, total: 0 });
+    try {
+      let suggestions;
+      if (editingId && editingBook) {
+        const minPage = getMinPage(editingBook.pageOffset);
+        const pages = [];
+        for (let display = minPage; display <= editingBook.totalPages; display++) {
+          if (display === 0 && minPage < 0) continue; // no page 0 in Roman-numeral books
+          const imageNum = String(display + editingBook.pageOffset).padStart(3, '0');
+          pages.push({ displayPage: display, url: `/api/image/${imageNum}?book=${editingBook.id}` });
+        }
+        suggestions = await suggestTocFromImages(pages, setScan, controller);
+      } else {
+        if (!pdfFile) {
+          setError('Choose a PDF file first - the scan reads the titles from its pages');
+          setScan(null);
+          return;
+        }
+        const offsetNum = parseInt(pageOffset, 10);
+        if (isNaN(offsetNum)) {
+          setError('Set the page offset first - it determines which page numbers the titles map to');
+          setScan(null);
+          return;
+        }
+        const doc = await loadPdf(pdfFile);
+        try {
+          suggestions = await suggestTocFromPdf(doc, offsetNum, setScan, controller);
+        } finally {
+          await doc.loadingTask.destroy();
+        }
+      }
+
+      if (!controller.cancelled) {
+        setTocRows(
+          suggestions.map(sg => ({ title: sg.title, page: String(sg.page), preview: sg.preview }))
+        );
+        if (suggestions.length === 0) {
+          setError('No titles found on the pages - the scan may not be readable. Add entries by hand.');
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Scanning failed');
+    } finally {
+      setScan(null);
+      setScanController(null);
     }
   };
 
@@ -452,27 +522,75 @@ export default function AdminBooksPage() {
 
             {/* Table of contents editor */}
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1 gap-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Table of contents <span className="text-gray-400">(optional, searchable)</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setTocRows(rows => [...rows, { title: '', page: '' }])}
-                  disabled={busy}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  + Add entry
-                </button>
+                <div className="flex gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleSuggestTitles}
+                    disabled={busy}
+                    className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                    title="Read the titles off the pages (PDF text or OCR) and pre-fill the entries"
+                  >
+                    ✨ Suggest from pages
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTocRows(rows => [...rows, { title: '', page: '' }])}
+                    disabled={busy}
+                    className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                  >
+                    + Add entry
+                  </button>
+                </div>
               </div>
+
+              {scan && (
+                <div
+                  data-testid="scan-progress"
+                  className="mb-2 flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"
+                >
+                  <span className="shrink-0">
+                    Scanning pages… {scan.total > 0 ? `${scan.done} / ${scan.total}` : ''}
+                  </span>
+                  <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                    <div
+                      className="h-full bg-blue-600 transition-all"
+                      style={{ width: scan.total ? `${(scan.done / scan.total) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (scanController) scanController.cancelled = true;
+                    }}
+                    className="text-red-600 hover:underline shrink-0"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               {tocRows.length === 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   No entries yet. You can add them now or come back and edit later.
                 </p>
               )}
-              <div className="space-y-2">
+              <div className="space-y-2" data-testid="toc-rows">
                 {tocRows.map((row, i) => (
-                  <div key={i} className="flex gap-2">
+                  <div key={i}>
+                    {row.preview && (
+                      // The scanned strip the suggestion was read from, so
+                      // titles can be verified without opening the book
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.preview}
+                        alt=""
+                        className="w-full max-w-md rounded border border-gray-200 dark:border-gray-700 mb-1"
+                      />
+                    )}
+                    <div className="flex gap-2">
                     <input
                       type="text"
                       value={row.title}
@@ -507,6 +625,7 @@ export default function AdminBooksPage() {
                     >
                       ✕
                     </button>
+                    </div>
                   </div>
                 ))}
               </div>

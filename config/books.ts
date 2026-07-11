@@ -62,7 +62,7 @@ export const books: Book[] = [
   },
 ];
 
-// A second book for exercising multi-book behavior in e2e tests.
+// Extra books for exercising multi-book behavior in e2e tests.
 // NEXT_PUBLIC_TEST_BOOK is only set in test builds, never in production.
 if (process.env.NEXT_PUBLIC_TEST_BOOK === '1') {
   books.push({
@@ -77,6 +77,17 @@ if (process.env.NEXT_PUBLIC_TEST_BOOK === '1') {
       { title: 'Test Section One', page: 3 },
       { title: 'Test Section Two', page: 10 },
     ],
+  });
+  // Three pages with big printed titles, for the admin TOC OCR e2e test
+  books.push({
+    id: 'ocrbook',
+    title: 'OCR Book (E2E Only)',
+    shortTitle: 'OCR Book',
+    imagePrefix: 'ocrbook',
+    totalPages: 3,
+    pageOffset: -1,
+    minExercisePage: 1,
+    sections: [],
   });
 }
 

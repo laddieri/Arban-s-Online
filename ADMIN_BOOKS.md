@@ -68,7 +68,15 @@ Replace `your-domain.com` with the real domain (keep localhost for dev).
      Roman-numeral preface pages before printed page 1 (the Arban uses 7).
    - **First exercise page** — where the random-exercise button starts.
    - **Table of contents** — optional title/page rows; they power search.
-     Fine to leave empty and fill in later via **Edit**.
+     Click **✨ Suggest from pages** to fill them automatically: the scan
+     reads each page's heading from the PDF's text layer when it has one
+     (instant), or by OCR of the top of each page (about a second per page,
+     with progress and a Cancel button). Suggestions include a snapshot of
+     the scanned heading so you can verify and fix titles in place, and
+     repeated running headers (the book title on every page) are filtered
+     out automatically. The same button works later in **Edit** mode, where
+     it reads the already-uploaded page images. Review before saving - OCR
+     on old engravings is good but not perfect.
 3. **Convert & upload**, and keep the tab open. ~1–2s per page; a progress
    bar tracks it. Each page retries a few times on flaky connections.
 4. When it finishes, **Open it** — verify a few pages line up (cover on
