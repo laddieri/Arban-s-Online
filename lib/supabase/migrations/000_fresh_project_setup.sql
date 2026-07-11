@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-004).
+-- (it currently reflects schema.sql + migrations 001-005).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -68,6 +68,16 @@ CREATE TABLE IF NOT EXISTS admins (
   email TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
+
+-- Users may only see their own row: enough for the app's "am I an admin?"
+-- checks and for the EXISTS() subqueries in the video_submissions policies
+-- below (which run as the querying user), without exposing other admins'
+-- emails. Rows are inserted via the SQL editor, so no INSERT policy exists.
+CREATE POLICY "Users can check their own admin status"
+  ON admins FOR SELECT TO authenticated
+  USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Admins can view all submissions"
   ON video_submissions FOR SELECT TO authenticated
