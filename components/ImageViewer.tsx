@@ -29,6 +29,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
 const NIGHT_MODE_KEY = 'arbans_night_mode';
+const TWO_PAGE_KEY = 'arbans_two_page';
 
 export default function ImageViewer({
   bookId,
@@ -48,6 +49,10 @@ export default function ImageViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [nightMode, setNightMode] = useState(false);
+  // Two-page spread view: current page + the next one side by side, like an
+  // open book. Available at every screen size (a phone in landscape on a
+  // music stand is a real use case); persisted like night mode.
+  const [twoPageView, setTwoPageView] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
@@ -134,22 +139,25 @@ export default function ImageViewer({
         return;
       }
 
+      // Arrow keys move one spread at a time in two-page view
+      const step = twoPageView ? 2 : 1;
+      const lastVisible = twoPageView ? Math.min(currentPage + 1, totalPages) : currentPage;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         if (currentPage > minPageValue) {
-          onPageChange(currentPage - 1);
+          onPageChange(Math.max(currentPage - step, minPageValue));
         }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (currentPage < totalPages) {
-          onPageChange(currentPage + 1);
+        if (lastVisible < totalPages) {
+          onPageChange(Math.min(currentPage + step, totalPages));
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, pageOffset, totalPages, onPageChange]);
+  }, [currentPage, pageOffset, totalPages, onPageChange, twoPageView]);
 
   // Reset loading state when page changes, but preserve zoom level and scroll position
   useEffect(() => {
@@ -250,6 +258,7 @@ export default function ImageViewer({
   useEffect(() => {
     try {
       setNightMode(localStorage.getItem(NIGHT_MODE_KEY) === '1');
+      setTwoPageView(localStorage.getItem(TWO_PAGE_KEY) === '1');
     } catch {
       // localStorage unavailable; default to normal colors
     }
@@ -260,6 +269,24 @@ export default function ImageViewer({
     setNightMode(next);
     try {
       localStorage.setItem(NIGHT_MODE_KEY, next ? '1' : '0');
+    } catch {
+      // localStorage unavailable; the toggle still works for this session
+    }
+  };
+
+  const toggleTwoPageView = () => {
+    const next = !twoPageView;
+    setTwoPageView(next);
+    // Zoom 1 fits the whole spread (or page) to the container width - the
+    // natural starting point after the layout change
+    setZoomLevel(1);
+    const container = containerRef.current;
+    if (container) {
+      container.scrollTop = 0;
+      container.scrollLeft = 0;
+    }
+    try {
+      localStorage.setItem(TWO_PAGE_KEY, next ? '1' : '0');
     } catch {
       // localStorage unavailable; the toggle still works for this session
     }
@@ -402,15 +429,23 @@ export default function ImageViewer({
 
   const minPage = getMinPage(pageOffset);
 
+  // In two-page view the right-hand page is currentPage + 1, so navigation
+  // moves a whole spread at a time and "next" stops once the last page is
+  // already showing on the right
+  const secondPage = twoPageView && currentPage < totalPages ? currentPage + 1 : null;
+  const pageStep = twoPageView ? 2 : 1;
+  const canGoPrevious = currentPage > minPage;
+  const canGoNext = (secondPage ?? currentPage) < totalPages;
+
   const goToPreviousPage = () => {
-    if (currentPage > minPage) {
-      onPageChange(currentPage - 1);
+    if (canGoPrevious) {
+      onPageChange(Math.max(currentPage - pageStep, minPage));
     }
   };
 
   const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      onPageChange(currentPage + 1);
+    if (canGoNext) {
+      onPageChange(Math.min(currentPage + pageStep, totalPages));
     }
   };
 
@@ -438,17 +473,20 @@ export default function ImageViewer({
 
   const currentImageUrl = getImageUrl(currentPage);
 
-  // Preload next and previous images for smoother navigation
+  // Preload adjacent pages for smoother navigation (the next/previous
+  // spread in two-page view)
   useEffect(() => {
-    if (currentPage < totalPages) {
-      const nextImage = new window.Image();
-      nextImage.src = getImageUrl(currentPage + 1);
+    for (let offset = 1; offset <= pageStep; offset++) {
+      const ahead = (twoPageView ? currentPage + 1 : currentPage) + offset;
+      if (ahead <= totalPages) {
+        new window.Image().src = getImageUrl(ahead);
+      }
+      if (currentPage - offset >= minPage) {
+        new window.Image().src = getImageUrl(currentPage - offset);
+      }
     }
-    if (currentPage > minPage) {
-      const prevImage = new window.Image();
-      prevImage.src = getImageUrl(currentPage - 1);
-    }
-  }, [currentPage, totalPages, minPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, totalPages, minPage, twoPageView, pageStep]);
 
   return (
     <div className="relative h-full bg-white dark:bg-gray-900">
@@ -479,7 +517,7 @@ export default function ImageViewer({
           {/* Previous page - left edge */}
           <button
             onClick={goToPreviousPage}
-            disabled={currentPage <= minPage}
+            disabled={!canGoPrevious}
             className={`fixed top-1/2 -translate-y-1/2 z-30 h-32 w-12 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white rounded-r-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${
               showLeftNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
@@ -494,7 +532,7 @@ export default function ImageViewer({
           {/* Next page - right edge */}
           <button
             onClick={goToNextPage}
-            disabled={currentPage >= totalPages}
+            disabled={!canGoNext}
             className={`fixed right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-12 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white rounded-l-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${
               showRightNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
@@ -554,45 +592,60 @@ export default function ImageViewer({
               </button>
             </div>
           ) : (
-            <img
-              ref={imageRef}
-              src={currentImageUrl}
-              draggable={false}
-              alt={`Page ${formatDisplayPageNumber(currentPage, pageOffset)} of ${totalPages}`}
-              className={`h-auto transition-all duration-100 ${
-                isLoading ? 'opacity-0' : 'opacity-100'
-              }`}
-              onLoad={(e) => {
-                const img = e.currentTarget;
-                setIsLoading(false);
-                const container = containerRef.current;
-                // Calculate zoom to fit entire page in viewport (only on first load)
-                if (!initialZoomSetRef.current) {
-                  // Set initial zoom: 100% on mobile, 60% on desktop
-                  setZoomLevel(isDesktop ? 0.6 : 1);
-                  initialZoomSetRef.current = true;
-                  // Scroll down slightly from the top on desktop (simulate one scroll wheel click)
-                  if (container && isDesktop) {
-                    container.scrollTop = 100;
-                    container.scrollLeft = 0;
+            <div className={secondPage !== null ? 'flex items-start' : undefined}>
+              <img
+                ref={imageRef}
+                src={currentImageUrl}
+                draggable={false}
+                alt={`Page ${formatDisplayPageNumber(currentPage, pageOffset)} of ${totalPages}`}
+                className={`h-auto transition-all duration-100 ${
+                  isLoading ? 'opacity-0' : 'opacity-100'
+                }`}
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setIsLoading(false);
+                  const container = containerRef.current;
+                  // Calculate zoom to fit entire page in viewport (only on first load)
+                  if (!initialZoomSetRef.current) {
+                    // Set initial zoom: 100% on mobile, 60% on desktop
+                    setZoomLevel(isDesktop ? 0.6 : 1);
+                    initialZoomSetRef.current = true;
+                    // Scroll down slightly from the top on desktop (simulate one scroll wheel click)
+                    if (container && isDesktop) {
+                      container.scrollTop = 100;
+                      container.scrollLeft = 0;
+                    }
                   }
-                }
-                // Restore scroll position after image loads (for page changes)
-                else if (container && savedScrollRef.current) {
-                  container.scrollTop = savedScrollRef.current.top;
-                  container.scrollLeft = savedScrollRef.current.left;
-                }
-              }}
-              onError={() => {
-                setImageError(true);
-                setIsLoading(false);
-              }}
-              style={{
-                width: '100%',
-                maxWidth: 'none',
-                ...(nightMode ? { filter: 'invert(1) hue-rotate(180deg)' } : {}),
-              }}
-            />
+                  // Restore scroll position after image loads (for page changes)
+                  else if (container && savedScrollRef.current) {
+                    container.scrollTop = savedScrollRef.current.top;
+                    container.scrollLeft = savedScrollRef.current.left;
+                  }
+                }}
+                onError={() => {
+                  setImageError(true);
+                  setIsLoading(false);
+                }}
+                style={{
+                  width: secondPage !== null ? '50%' : '100%',
+                  maxWidth: 'none',
+                  ...(nightMode ? { filter: 'invert(1) hue-rotate(180deg)' } : {}),
+                }}
+              />
+              {secondPage !== null && (
+                <img
+                  src={getImageUrl(secondPage)}
+                  draggable={false}
+                  alt={`Page ${formatDisplayPageNumber(secondPage, pageOffset)} of ${totalPages}`}
+                  className="h-auto transition-all duration-100"
+                  style={{
+                    width: '50%',
+                    maxWidth: 'none',
+                    ...(nightMode ? { filter: 'invert(1) hue-rotate(180deg)' } : {}),
+                  }}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -603,7 +656,7 @@ export default function ImageViewer({
           {/* Page Navigation - Previous button (desktop only, shown inline) */}
           <button
             onClick={goToPreviousPage}
-            disabled={currentPage <= minPage}
+            disabled={!canGoPrevious}
             className="hidden lg:block px-4 py-1 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
           >
             Previous
@@ -671,6 +724,17 @@ export default function ImageViewer({
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            </button>
+            <button
+              onClick={toggleTwoPageView}
+              className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
+                twoPageView ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+              title={twoPageView ? 'Two-page view on: back to single page' : 'Two-page view: show facing pages side by side'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             </button>
             <button
@@ -771,7 +835,7 @@ export default function ImageViewer({
           <div className="flex items-center justify-between order-2 lg:order-3">
             <button
               onClick={goToPreviousPage}
-              disabled={currentPage <= minPage}
+              disabled={!canGoPrevious}
               className="lg:hidden px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
             >
               Previous
@@ -795,7 +859,7 @@ export default function ImageViewer({
 
             <button
               onClick={goToNextPage}
-              disabled={currentPage >= totalPages}
+              disabled={!canGoNext}
               className="px-4 py-2 lg:py-1 bg-blue-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition"
             >
               Next
