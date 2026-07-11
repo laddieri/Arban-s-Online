@@ -88,6 +88,30 @@ same screen. Deleting removes the book from the site but leaves its images
 in the bucket — harmless, and re-adding the same id picks them right up
 without re-uploading.
 
+## Finding videos for exercises
+
+Admins get a **Find videos for this page** button in the viewer toolbar (on
+every book). It searches YouTube for the exercise on the open page - the
+query is built from the book's table of contents ("Characteristic Study
+No. 1 Arban's trumpet") and can be edited before re-searching - and each
+result can be attached as an approved video with one click. Attached videos
+appear in the page's video overlay and on /videos immediately.
+
+One-time setup (YouTube Data API v3):
+
+1. In [Google Cloud Console](https://console.cloud.google.com), create (or
+   pick) a project → **APIs & Services** → **Library** → enable
+   **YouTube Data API v3**
+2. **APIs & Services** → **Credentials** → **Create credentials** →
+   **API key**. Restrict the key to the YouTube Data API v3 (Application
+   restrictions can stay "None" - the key is only used server-side).
+3. Add it to the deployment env vars as `YOUTUBE_API_KEY` and redeploy.
+
+The free quota is 10,000 units/day; each search costs 100 units, so about
+100 searches a day - plenty for curating a book at a time. Expect named
+pieces ("The Carnival of Venice") to search much better than numbered
+exercises; edit the query when the defaults miss.
+
 ## Troubleshooting
 
 - **Pages render blank / white**: the PDF's scan images use a codec (JBIG2,
