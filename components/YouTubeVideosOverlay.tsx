@@ -29,6 +29,9 @@ export default function YouTubeVideosOverlay({
   const [isResizing, setIsResizing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  // Facade pattern: show a thumbnail until the user presses play, then mount
+  // the real (heavy, cookie-setting) YouTube iframe with autoplay
+  const [playerActive, setPlayerActive] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0 });
@@ -64,6 +67,7 @@ export default function YouTubeVideosOverlay({
   // Reset to first video when videos change
   useEffect(() => {
     setCurrentVideoIndex(0);
+    setPlayerActive(false);
   }, [videos]);
 
   // Handle dragging
@@ -178,16 +182,21 @@ export default function YouTubeVideosOverlay({
 
   const handlePreviousVideo = () => {
     setCurrentVideoIndex((prev) => (prev > 0 ? prev - 1 : videos.length - 1));
+    setPlayerActive(false);
   };
 
   const handleNextVideo = () => {
     setCurrentVideoIndex((prev) => (prev < videos.length - 1 ? prev + 1 : 0));
+    setPlayerActive(false);
   };
 
   if (!isOpen || videos.length === 0) return null;
 
   const currentVideo = videos[currentVideoIndex];
-  const embedUrl = `https://www.youtube.com/embed/${currentVideo.videoId}`;
+  // nocookie domain: no tracking cookies until the user actually plays.
+  // autoplay=1 because the iframe only mounts after a deliberate play click.
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${currentVideo.videoId}?autoplay=1`;
+  const thumbnailUrl = `https://i.ytimg.com/vi/${currentVideo.videoId}/hqdefault.jpg`;
 
   return (
     <div
@@ -277,15 +286,41 @@ export default function YouTubeVideosOverlay({
       {!isMinimized && (
         <>
           <div className="flex flex-col h-[calc(100%-40px)]">
-            {/* Video player */}
+            {/* Video player. Facade until play is pressed; while the window
+                is being dragged/resized the iframe must not capture the
+                pointer, or the drag sticks the moment the cursor crosses it */}
             <div className="flex-grow bg-black relative">
-              <iframe
-                src={embedUrl}
-                className="w-full h-full border-0"
-                title={currentVideo.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              {playerActive ? (
+                <iframe
+                  src={embedUrl}
+                  className={`w-full h-full border-0 ${
+                    isDragging || isResizing ? 'pointer-events-none' : ''
+                  }`}
+                  title={currentVideo.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <button
+                  onClick={() => setPlayerActive(true)}
+                  className="group w-full h-full relative flex items-center justify-center"
+                  aria-label={`Play ${currentVideo.title}`}
+                  data-testid="video-facade"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbnailUrl}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <span className="relative flex items-center justify-center w-16 h-12 rounded-xl bg-black/70 group-hover:bg-red-600 transition-colors">
+                    <svg className="w-7 h-7 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Video info and controls */}
