@@ -35,23 +35,69 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 ## Step 3: Run the Database Schema
 
 1. In your Supabase project, go to the **SQL Editor** tab
-2. Copy the contents of `lib/supabase/schema.sql`
+2. Copy the contents of `lib/supabase/migrations/000_fresh_project_setup.sql`
+   (the complete current schema - do NOT use the older `schema.sql` plus
+   numbered migrations; those are kept for incremental upgrades of existing
+   projects)
 3. Paste it into the SQL Editor
 4. Click "Run" to execute the schema
 
 This will create:
 - `video_submissions` table for storing video entries
 - `admins` table for managing admin users
+- `user_favorites`, `user_lists`/`user_list_items`, and `page_history` tables
 - Row Level Security (RLS) policies
 - Necessary indexes for performance
 
 ## Step 4: Set Up Authentication
 
-1. In Supabase, go to **Authentication** > **Providers**
-2. Enable **Email** provider (it's usually enabled by default)
-3. Configure email settings (optional):
-   - Go to **Authentication** > **Email Templates** to customize the magic link email
-   - For production, set up a custom SMTP provider
+1. In Supabase, go to **Authentication** > **URL Configuration**:
+   - Set **Site URL** to your production domain
+   - Add `https://<your-domain>/auth/callback` and
+     `http://localhost:3000/auth/callback` to **Redirect URLs**
+2. The **Email** provider is enabled by default - magic-link sign-in works
+   out of the box, but only with Supabase's built-in email sender, which is
+   rate-limited to a few emails per hour. Before sharing the site, configure
+   custom SMTP (see next step).
+
+### Custom SMTP with Resend
+
+The built-in sender is for development only. [Resend](https://resend.com)'s
+free tier (3,000 emails/month, 100/day) is more than enough for magic links:
+
+1. Sign up at resend.com and add your domain under **Domains** > **Add Domain**
+2. Add the DNS records Resend shows you (DKIM + SPF TXT records) at your DNS
+   host, then wait for the domain to show **Verified**
+3. Create an API key under **API Keys** ("Sending access" permission is enough)
+4. In Supabase: **Project Settings** > **Authentication** > **SMTP Settings**,
+   enable Custom SMTP and enter:
+   - **Host**: `smtp.resend.com`
+   - **Port**: `465`
+   - **Username**: `resend`
+   - **Password**: your Resend API key
+   - **Sender email**: an address on your verified domain, e.g.
+     `login@your-domain.com` (it doesn't need a real inbox)
+   - **Sender name**: e.g. `Arban's Online`
+5. After enabling custom SMTP, raise the email rate limit under
+   **Authentication** > **Rate Limits** (the default stays conservative even
+   with your own SMTP)
+6. Test: sign out, request a magic link, confirm it arrives from your domain
+
+Note: Resend requires a domain you own. Without one, it can only send to your
+own account's email address - fine for solo testing, not for real users.
+
+### Google Sign-In (optional, currently hidden)
+
+The "Continue with Google" button in the sign-in dialog is hidden unless the
+deployment sets `NEXT_PUBLIC_GOOGLE_AUTH=1`. To enable it:
+
+1. In Supabase: **Authentication** > **Sign In / Providers** > **Google** >
+   enable, and copy the callback URL it shows
+   (`https://<project-ref>.supabase.co/auth/v1/callback`)
+2. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   add that callback URL to your OAuth client's **Authorized redirect URIs**
+3. Paste the Google client ID and secret into the Supabase provider form
+4. Set `NEXT_PUBLIC_GOOGLE_AUTH=1` in the deployment env vars and redeploy
 
 ## Step 5: Add Your First Admin
 
