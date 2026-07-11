@@ -23,7 +23,16 @@ export async function loadPdf(file: File): Promise<PDFDocumentProxy> {
     import.meta.url
   ).toString();
   const data = await file.arrayBuffer();
-  return pdfjs.getDocument({ data }).promise;
+  return pdfjs.getDocument({
+    data,
+    // Runtime assets copied into public/ by scripts/copy-pdfjs-assets.mjs.
+    // wasmUrl is load-bearing: JBIG2/JPEG-2000 scans (most IMSLP PDFs)
+    // decode via wasm, and without it pages silently render blank white.
+    wasmUrl: '/pdfjs/wasm/',
+    standardFontDataUrl: '/pdfjs/standard_fonts/',
+    cMapUrl: '/pdfjs/cmaps/',
+    cMapPacked: true,
+  }).promise;
 }
 
 /** webp encodes ~3x smaller than png but Safari can't always encode it */
@@ -37,12 +46,18 @@ export function detectWebpEncodeSupport(): boolean {
   }
 }
 
+export interface RenderedPage {
+  blob: Blob;
+  /** True when the whole page rendered near-white - possibly a decode failure */
+  isBlank: boolean;
+}
+
 /** Render one page (1-based) to an image blob. */
 export async function renderPageToBlob(
   doc: PDFDocumentProxy,
   pageNumber: number,
   format: 'webp' | 'png'
-): Promise<Blob> {
+): Promise<RenderedPage> {
   const page = await doc.getPage(pageNumber);
   try {
     const baseViewport = page.getViewport({ scale: 1 });
@@ -61,13 +76,29 @@ export async function renderPageToBlob(
 
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
+    // Guard against silent decode failures (e.g. a missing image codec):
+    // pdf.js "successfully" renders such pages as blank white. Sample the
+    // canvas; a genuinely uniform page is reported so the caller can decide.
+    const sample = ctx.getImageData(0, 0, canvas.width, canvas.height, {
+      colorSpace: 'srgb',
+    });
+    let isBlank = true;
+    // Stride through ~10k pixels; any non-near-white pixel means content
+    const stride = Math.max(4, (sample.data.length >> 2) / 10000 | 0) * 4;
+    for (let i = 0; i < sample.data.length; i += stride) {
+      if (sample.data[i] < 240 || sample.data[i + 1] < 240 || sample.data[i + 2] < 240) {
+        isBlank = false;
+        break;
+      }
+    }
+
     const blob = await new Promise<Blob | null>(resolve =>
       canvas.toBlob(resolve, format === 'webp' ? 'image/webp' : 'image/png', 0.82)
     );
     // Free the canvas memory eagerly; large books render hundreds of these
     canvas.width = canvas.height = 0;
     if (!blob) throw new Error(`Page ${pageNumber}: image encoding failed`);
-    return blob;
+    return { blob, isBlank };
   } finally {
     page.cleanup();
   }

@@ -5,11 +5,7 @@ import Link from 'next/link';
 import type { Book } from '@/config/books';
 import type { Section } from '@/config/tocSections';
 import { loadRemoteBooks } from '@/lib/books/registry';
-import {
-  validateBookPayload,
-  slugFromTitle,
-  BOOK_ID_PATTERN,
-} from '@/utils/bookValidation';
+import { validateBookPayload, slugFromTitle } from '@/utils/bookValidation';
 import { loadPdf, renderPageToBlob, detectWebpEncodeSupport } from '@/lib/pdfConvert';
 
 // How many page images upload in parallel. R2 handles far more, but the
@@ -126,11 +122,27 @@ export default function AdminBooksPage() {
   ) => {
     const total = doc.numPages;
     let done = 0;
+    let blankCount = 0;
     let nextPage = 1;
+
+    // Preflight: if the opening pages render blank white, the PDF's images
+    // almost certainly failed to decode (unsupported codec) - stop before
+    // spending minutes uploading a broken book.
+    const first = await renderPageToBlob(doc, 1, format);
+    const second = total > 1 ? await renderPageToBlob(doc, 2, format) : first;
+    if (first.isBlank && second.isBlank) {
+      throw new Error(
+        'The first pages rendered completely blank, which usually means this ' +
+          "PDF's images use a codec the browser could not decode. Nothing was " +
+          'published. Try a different scan of the book (or report this PDF).'
+      );
+    }
+
     setPhase({ name: 'uploading', done: 0, total });
 
     const uploadOne = async (pageNumber: number) => {
-      const blob = await renderPageToBlob(doc, pageNumber, format);
+      const { blob, isBlank } = await renderPageToBlob(doc, pageNumber, format);
+      if (isBlank) blankCount++;
       for (let attempt = 1; ; attempt++) {
         try {
           const presign = await fetch('/api/admin/books/upload-url', {
@@ -166,6 +178,13 @@ export default function AdminBooksPage() {
     await Promise.all(
       Array.from({ length: Math.min(UPLOAD_CONCURRENCY, total) }, worker)
     );
+
+    if (blankCount === total) {
+      throw new Error(
+        'Every page rendered blank - this PDF could not be converted. ' +
+          'The uploaded images should not be published; nothing was registered.'
+      );
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -384,7 +403,8 @@ export default function AdminBooksPage() {
                     setSlugTouched(true);
                   }}
                   required
-                  pattern={BOOK_ID_PATTERN.source}
+                  // HTML pattern (v-flag) needs the hyphen escaped and no anchors
+                  pattern="[a-z0-9][a-z0-9\-]{1,39}"
                   disabled={busy || !!editingId}
                   placeholder="clarke"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm disabled:opacity-60"

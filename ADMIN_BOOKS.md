@@ -80,6 +80,16 @@ same screen. Deleting removes the book from the site but leaves its images
 in the bucket — harmless, and re-adding the same id picks them right up
 without re-uploading.
 
+## Troubleshooting
+
+- **Pages render blank / white**: the PDF's scan images use a codec (JBIG2,
+  JPEG 2000 - common on IMSLP) that pdf.js decodes with WebAssembly served
+  from `/pdfjs/wasm/`. Those files are copied from `pdfjs-dist` into
+  `public/pdfjs/` by `scripts/copy-pdfjs-assets.mjs` on every build - if
+  they're missing, check that the build ran the `prebuild` script. The
+  uploader also detects all-blank conversions and aborts instead of
+  publishing a broken book.
+
 ## Notes
 
 - Images upload as webp (~150–400KB/page at 2000px wide); on browsers that
