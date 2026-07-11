@@ -289,23 +289,66 @@ export default function ImageViewer({
     }
   }, [isDesktop, currentPage]);
 
-  // Handle mouse wheel zoom (with Ctrl/Cmd key; also trackpad pinch, which
-  // browsers report as ctrl+wheel), anchored at the cursor position
+  // The mouse wheel zooms at the cursor, no modifier needed (trackpad pinch
+  // arrives as ctrl+wheel and behaves the same); click-drag pans instead of
+  // wheel-scrolling, so the viewer works like a map.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-        applyZoom(zoomRef.current + delta, { x: e.clientX, y: e.clientY });
-      }
+      e.preventDefault();
+      // Exponential scaling keeps notched wheels (|deltaY| ~100 per click)
+      // and smooth trackpads (streams of small deltas) at a comparable rate
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      applyZoom(zoomRef.current * factor, { x: e.clientX, y: e.clientY });
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
   }, [applyZoom]);
+
+  // Click-drag panning for mouse users. Native focus handling is left alone
+  // (no preventDefault on mousedown): clicking the page must still blur the
+  // page-number input so arrow keys navigate. Ghost image dragging is
+  // disabled via draggable={false} on the img and select-none while panning.
+  const [isPanning, setIsPanning] = useState(false);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let drag: { x: number; y: number; left: number; top: number } | null = null;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      if ((e.target as HTMLElement).closest('button, input, a')) return;
+      drag = {
+        x: e.clientX,
+        y: e.clientY,
+        left: container.scrollLeft,
+        top: container.scrollTop,
+      };
+      setIsPanning(true);
+    };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!drag) return;
+      container.scrollLeft = drag.left - (e.clientX - drag.x);
+      container.scrollTop = drag.top - (e.clientY - drag.y);
+    };
+    const handleMouseUp = () => {
+      drag = null;
+      setIsPanning(false);
+    };
+
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Two-finger pinch zoom (mobile/tablet), anchored at the pinch midpoint.
   // The container's touch-action is pan-x pan-y, so single-finger panning
@@ -468,8 +511,8 @@ export default function ImageViewer({
         ref={containerRef}
         className={`h-full overflow-auto ${
           nightMode ? 'bg-gray-900' : 'bg-gray-100 dark:bg-gray-800'
-        } pb-52 lg:pb-16 image-viewer-scroll ${
-          zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+        } pb-52 lg:pb-16 image-viewer-scroll cursor-grab ${
+          isPanning ? 'cursor-grabbing select-none' : ''
         }`}
         id="image-container"
         style={{
@@ -514,6 +557,7 @@ export default function ImageViewer({
             <img
               ref={imageRef}
               src={currentImageUrl}
+              draggable={false}
               alt={`Page ${formatDisplayPageNumber(currentPage, pageOffset)} of ${totalPages}`}
               className={`h-auto transition-all duration-100 ${
                 isLoading ? 'opacity-0' : 'opacity-100'

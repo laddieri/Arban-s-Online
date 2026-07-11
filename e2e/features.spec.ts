@@ -61,16 +61,37 @@ test.describe('pinch zoom on mobile', () => {
 });
 
 test.describe('desktop zoom and night mode', () => {
-  test('ctrl+wheel zooms at the cursor', async ({ page }) => {
+  test('wheel zooms at the cursor and click-drag pans', async ({ page }) => {
     await page.goto('/?page=50');
     await expect(page.locator('#image-container img')).toBeVisible();
     const initial = parseInt((await zoomText(page).textContent()) ?? '0', 10);
+
+    // Plain wheel (no modifier) zooms in
     await page.mouse.move(900, 500);
-    await page.keyboard.down('Control');
     for (let i = 0; i < 5; i++) await page.mouse.wheel(0, -100);
-    await page.keyboard.up('Control');
     const zoomed = parseInt((await zoomText(page).textContent()) ?? '0', 10);
     expect(zoomed).toBeGreaterThan(initial);
+
+    // Ctrl+wheel (trackpad pinch) still zooms too
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, -100);
+    await page.keyboard.up('Control');
+    expect(parseInt((await zoomText(page).textContent()) ?? '0', 10)).toBeGreaterThan(zoomed);
+
+    // Click-drag pans the zoomed page (drag up-left scrolls down-right)
+    const scrollPos = () =>
+      page.evaluate(() => {
+        const c = document.getElementById('image-container')!;
+        return { left: c.scrollLeft, top: c.scrollTop };
+      });
+    const before = await scrollPos();
+    await page.mouse.move(900, 500);
+    await page.mouse.down();
+    await page.mouse.move(700, 300, { steps: 5 });
+    await page.mouse.up();
+    const after = await scrollPos();
+    expect(after.left).toBeGreaterThan(before.left);
+    expect(after.top).toBeGreaterThan(before.top);
   });
 
   test('night mode inverts the page and persists', async ({ page }) => {
