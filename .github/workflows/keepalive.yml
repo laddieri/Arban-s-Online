@@ -1,0 +1,49 @@
+# Prevents the Supabase free-tier project from being paused for inactivity.
+# Free projects pause after ~7 days without activity, and a project paused
+# for more than 90 days can no longer be restored. This pings the database
+# through the REST API twice a week so it always counts as active.
+#
+# Setup (repo Settings -> Secrets and variables -> Actions -> New repository secret):
+#   SUPABASE_URL       - e.g. https://abcdefgh.supabase.co
+#   SUPABASE_ANON_KEY  - the project's anon/public API key
+#
+# The query itself needs no privileges: hitting PostgREST with a valid anon
+# key registers database activity even when RLS returns zero rows.
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # Mondays and Thursdays at 09:17 UTC (odd minute avoids the top-of-hour
+    # spike when GitHub delays/drops scheduled runs)
+    - cron: '17 9 * * 1,4'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY secrets are not set"
+            exit 1
+          fi
+          status=$(curl -s -o /tmp/body -w '%{http_code}' \
+            --retry 3 --retry-delay 5 --max-time 30 \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/video_submissions?select=id&limit=1")
+          echo "HTTP $status"
+          # 200 = query ran; anything else means the project is unreachable
+          # (paused, deleted, or wrong secrets) - fail loudly so the scheduled
+          # run shows a red X and GitHub emails the repo owner.
+          if [ "$status" != "200" ]; then
+            cat /tmp/body
+            echo "::error::Supabase ping failed with HTTP $status - check that the project is running and the secrets are current"
+            exit 1
+          fi
+          echo "Supabase project is awake."
