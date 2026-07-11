@@ -160,3 +160,26 @@ test.describe('metronome', () => {
     await expect(page.locator('[data-testid="beat-dots"] > div')).toHaveCount(3);
   });
 });
+
+test.describe('exercise videos', () => {
+  test('overlay shows a facade; the iframe only mounts on play, via nocookie', async ({ page }) => {
+    // Page 11 has a compiled-in example video (config/exerciseVideos.ts)
+    await page.goto('/?page=11');
+    await page.locator('button[title^="View 1 video"]').click();
+
+    // Facade first: thumbnail + play button, no YouTube iframe loaded yet
+    const facade = page.locator('[data-testid="video-facade"]');
+    await expect(facade).toBeVisible();
+    await expect(page.locator('iframe')).toHaveCount(0);
+
+    // Play swaps in the privacy-domain iframe with autoplay
+    await facade.click();
+    const iframe = page.locator('iframe');
+    await expect(iframe).toHaveCount(1);
+    await expect(iframe).toHaveAttribute(
+      'src',
+      /^https:\/\/www\.youtube-nocookie\.com\/embed\/[\w-]{11}\?autoplay=1$/
+    );
+    await expect(facade).toHaveCount(0);
+  });
+});
