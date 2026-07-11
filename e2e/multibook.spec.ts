@@ -67,12 +67,16 @@ test('TOC and search are scoped to the active book', async ({ page }) => {
 test('history entries carry the book and navigate back to it', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => {
-    const now = Date.now();
+    // Anchor to local noon, not Date.now(): subtracting hours from a
+    // just-after-midnight "now" pushes entries onto yesterday, and the
+    // history page only lists the auto-selected (most recent) day.
+    const noon = new Date();
+    noon.setHours(12, 0, 0, 0);
     localStorage.setItem(
       'arbans_page_history',
       JSON.stringify([
-        { page: 50, timestamp: now - 3600000 }, // pre-multi-book entry (arban)
-        { page: 5, timestamp: now - 7200000, book: 'testbook' },
+        { page: 50, timestamp: noon.getTime() }, // pre-multi-book entry (arban)
+        { page: 5, timestamp: noon.getTime() - 3600000, book: 'testbook' },
       ])
     );
   });

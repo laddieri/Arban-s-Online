@@ -43,17 +43,21 @@ test.describe('TOC search', () => {
 test.describe('practice stats', () => {
   test('history page shows streak, day counts, and most-practiced pages', async ({ page }) => {
     await page.goto('/');
-    // Seed a 3-day practice run: today, yesterday, and two days ago
+    // Seed a 3-day practice run: today, yesterday, and two days ago.
+    // Anchored to local noon, not Date.now(): near midnight, "now - 1h"
+    // lands on yesterday and collapses the run to 2 distinct days.
     await page.evaluate(() => {
-      const now = Date.now();
+      const noon = new Date();
+      noon.setHours(12, 0, 0, 0);
+      const t = noon.getTime();
       const day = 86400000;
       localStorage.setItem(
         'arbans_page_history',
         JSON.stringify([
-          { page: 50, timestamp: now - 3600000 },
-          { page: 50, timestamp: now - day },
-          { page: 60, timestamp: now - day - 3600000 },
-          { page: 50, timestamp: now - 2 * day },
+          { page: 50, timestamp: t },
+          { page: 50, timestamp: t - day },
+          { page: 60, timestamp: t - day - 3600000 },
+          { page: 50, timestamp: t - 2 * day },
         ])
       );
     });
