@@ -7,6 +7,9 @@ interface YouTubeVideosOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   videos: ExerciseVideo[];
+  /** Select this video and start playback as soon as it appears in the
+   *  list (deep links from the recent-videos page). Applied once. */
+  initialVideoId?: string | null;
 }
 
 const MIN_WIDTH = 400;
@@ -22,6 +25,7 @@ export default function YouTubeVideosOverlay({
   isOpen,
   onClose,
   videos,
+  initialVideoId,
 }: YouTubeVideosOverlayProps) {
   const [position, setPosition] = useState({ x: 60, y: 60 });
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
@@ -64,10 +68,21 @@ export default function YouTubeVideosOverlay({
     }
   }, [isInitialized]);
 
-  // Reset to first video when videos change
+  // Reset to the first video when videos change - except the first time
+  // the deep-linked video (initialVideoId) shows up, which is selected and
+  // starts playing immediately. The id is kept in a ref and the effect
+  // only depends on `videos`: the viewer consumes the ?video= URL param
+  // after opening, which re-renders with initialVideoId null, and that
+  // must not reset an already-playing video back to its facade.
+  const initialVideoIdRef = useRef(initialVideoId);
+  if (initialVideoId) initialVideoIdRef.current = initialVideoId;
+  const appliedInitialRef = useRef(false);
   useEffect(() => {
-    setCurrentVideoIndex(0);
-    setPlayerActive(false);
+    const target = appliedInitialRef.current ? null : initialVideoIdRef.current;
+    const initialIndex = target ? videos.findIndex(v => v.videoId === target) : -1;
+    if (initialIndex >= 0) appliedInitialRef.current = true;
+    setCurrentVideoIndex(initialIndex >= 0 ? initialIndex : 0);
+    setPlayerActive(initialIndex >= 0);
   }, [videos]);
 
   // Handle dragging
