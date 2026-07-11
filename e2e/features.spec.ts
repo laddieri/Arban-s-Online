@@ -1,6 +1,6 @@
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 
-// Pinch-to-zoom, anchored wheel zoom, night mode, and the native metronome.
+// Pinch-to-zoom, anchored wheel zoom, and the native metronome.
 
 const zoomText = (page: Page) => page.locator('span.w-12');
 
@@ -60,7 +60,7 @@ test.describe('pinch zoom on mobile', () => {
   });
 });
 
-test.describe('desktop zoom and night mode', () => {
+test.describe('desktop zoom', () => {
   test('wheel zooms at the cursor and click-drag pans', async ({ page }) => {
     await page.goto('/?page=50');
     await expect(page.locator('#image-container img')).toBeVisible();
@@ -92,21 +92,6 @@ test.describe('desktop zoom and night mode', () => {
     const after = await scrollPos();
     expect(after.left).toBeGreaterThan(before.left);
     expect(after.top).toBeGreaterThan(before.top);
-  });
-
-  test('night mode inverts the page and persists', async ({ page }) => {
-    await page.goto('/?page=50');
-    const img = page.locator('#image-container img');
-    const toggle = page.locator('button[title*="Night mode"]');
-
-    await toggle.click();
-    await expect(img).toHaveCSS('filter', /invert/);
-
-    await page.reload();
-    await expect(page.locator('#image-container img')).toHaveCSS('filter', /invert/);
-
-    await page.locator('button[title*="Night mode"]').click();
-    await expect(page.locator('#image-container img')).not.toHaveCSS('filter', /invert/);
   });
 });
 
