@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { isValidBookId, DEFAULT_BOOK_ID } from '@/config/books';
+import { DEFAULT_BOOK_ID } from '@/config/books';
+import { isValidBookIdServer } from '@/lib/books/server';
 
 export async function GET(
   request: NextRequest,
@@ -26,7 +27,7 @@ export async function GET(
     }
 
     const bookParam = request.nextUrl.searchParams.get('book') ?? DEFAULT_BOOK_ID;
-    if (!isValidBookId(bookParam)) {
+    if (!(await isValidBookIdServer(bookParam))) {
       return NextResponse.json({ videos: [] });
     }
 

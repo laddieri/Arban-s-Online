@@ -16,11 +16,14 @@ import {
 } from '@/utils/pageHistory';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 import { appConfig } from '@/config/app.config';
-import { getBook, DEFAULT_BOOK_ID } from '@/config/books';
+import { getBook, DEFAULT_BOOK_ID } from '@/lib/books/registry';
+import { useBooks } from '@/hooks/useBooks';
 import { entryBook } from '@/utils/pageHistory';
 
 export default function HistoryPage() {
   const router = useRouter();
+  // Subscribe to the registry so runtime-book entries label correctly
+  useBooks();
   const [allHistory, setAllHistory] = useState<PageHistoryEntry[]>([]);
   const [datesWithHistory, setDatesWithHistory] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -93,7 +96,7 @@ export default function HistoryPage() {
       return `/api/image/${adjustedPage}?book=${book.id}`;
     }
     const prefix = book.imagePrefix ? `${book.imagePrefix}/` : '';
-    return `${appConfig.imageBaseUrl}/${prefix}page-${adjustedPage}.${appConfig.imageFormat}`;
+    return `${appConfig.imageBaseUrl}/${prefix}page-${adjustedPage}.${book.imageFormat ?? appConfig.imageFormat}`;
   };
 
   return (

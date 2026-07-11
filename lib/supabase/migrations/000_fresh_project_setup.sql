@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-005).
+-- (it currently reflects schema.sql + migrations 001-006).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -244,6 +244,42 @@ CREATE POLICY "Users can add to their own history"
 CREATE POLICY "Users can delete their own history"
   ON page_history FOR DELETE TO authenticated
   USING (auth.uid()::text = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Books uploaded through the admin UI (merged with compiled-in books at
+-- runtime; sections is the TOC as JSONB)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS books (
+  id TEXT PRIMARY KEY CHECK (id ~ '^[a-z0-9][a-z0-9-]{1,39}$'),
+  title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 200),
+  short_title TEXT NOT NULL CHECK (char_length(short_title) BETWEEN 1 AND 60),
+  image_prefix TEXT NOT NULL,
+  total_pages INTEGER NOT NULL CHECK (total_pages BETWEEN 1 AND 2000),
+  page_offset INTEGER NOT NULL DEFAULT -1 CHECK (page_offset BETWEEN -1 AND 100),
+  min_exercise_page INTEGER NOT NULL DEFAULT 1,
+  image_format TEXT NOT NULL DEFAULT 'webp' CHECK (image_format IN ('webp', 'png', 'jpg')),
+  sections JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE books ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view books"
+  ON books FOR SELECT
+  USING (true);
+
+CREATE POLICY "Admins can add books"
+  ON books FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()::text));
+
+CREATE POLICY "Admins can update books"
+  ON books FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()::text));
+
+CREATE POLICY "Admins can delete books"
+  ON books FOR DELETE TO authenticated
+  USING (EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()::text));
 
 -- Keep at most the latest 500 history rows per user
 CREATE OR REPLACE FUNCTION cleanup_old_history()

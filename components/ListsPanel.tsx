@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import type { UserList, UserListItem } from '@/lib/supabase/types';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
-import { getBook, DEFAULT_BOOK_ID } from '@/config/books';
+import { getBook, DEFAULT_BOOK_ID } from '@/lib/books/registry';
+import { useBooks } from '@/hooks/useBooks';
 import PrintDialog from './PrintDialog';
 
 interface ListsPanelProps {
@@ -28,6 +29,8 @@ export default function ListsPanel({
   totalPages,
   useImageProxy = false,
 }: ListsPanelProps) {
+  // Subscribe to the registry so runtime-book items re-label once loaded
+  useBooks();
   const [lists, setLists] = useState<UserList[]>([]);
   const [selectedList, setSelectedList] = useState<UserList | null>(null);
   const [listItems, setListItems] = useState<UserListItem[]>([]);

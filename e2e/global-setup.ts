@@ -69,7 +69,35 @@ function makePagePng(): Buffer {
 const TEST_BOOK_DIR = path.join(IMAGE_DIR, 'testbook');
 const TEST_BOOK_PAGES = 23; // totalPages 20 + offset 2, images page-000..022
 
-export default function globalSetup() {
+// A small real PDF for the admin upload e2e test, printed by Chromium
+const TEST_PDF = path.join(IMAGE_DIR, 'test-book.pdf');
+const TEST_PDF_PAGES = 5;
+
+async function makeTestPdf() {
+  if (existsSync(TEST_PDF)) return;
+  const { chromium } = await import('@playwright/test');
+  const browser = await chromium.launch({
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
+  });
+  const page = await browser.newPage();
+  const sections = Array.from(
+    { length: TEST_PDF_PAGES },
+    (_, i) => `<section><h1>Test PDF - page ${i + 1}</h1></section>`
+  ).join('');
+  await page.setContent(
+    `<style>
+      @page { size: 8.5in 11in; margin: 0; }
+      body { margin: 0; }
+      section { page-break-after: always; height: 11in; padding: 1in;
+                box-sizing: border-box; background: #f5ead0; font-size: 40px; }
+      section:last-child { page-break-after: auto; }
+    </style>${sections}`
+  );
+  await page.pdf({ path: TEST_PDF, preferCSSPageSize: true });
+  await browser.close();
+}
+
+export default async function globalSetup() {
   mkdirSync(IMAGE_DIR, { recursive: true });
   mkdirSync(TEST_BOOK_DIR, { recursive: true });
   const png = makePagePng();
@@ -83,5 +111,6 @@ export default function globalSetup() {
       writeFileSync(path.join(TEST_BOOK_DIR, `page-${String(i).padStart(3, '0')}.png`), png);
     }
   }
-  console.log(`test page images ready in ${IMAGE_DIR} (+ testbook/)`);
+  await makeTestPdf();
+  console.log(`test page images ready in ${IMAGE_DIR} (+ testbook/, test-book.pdf)`);
 }

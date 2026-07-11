@@ -2,7 +2,12 @@ import { Section, sections as arbanSections } from './tocSections';
 import { charlierSections } from './charlierSections';
 import { appConfig } from './app.config';
 
-// Registry of method books available in the viewer. To add a book:
+// Compiled-in method books. Books can also be added at runtime through the
+// admin UI (/admin/books): those live in the Supabase `books` table and are
+// merged with this list by lib/books/server.ts (API routes) and
+// lib/books/registry.ts (client). Static books here always win id clashes.
+//
+// To add a compiled-in book by hand:
 // 1. Convert its PDF to page images and upload them to the image bucket
 //    under the book's imagePrefix, 0-indexed from the first scanned page:
 //    charlier/page-000.webp (cover) .. charlier/page-071.webp.
@@ -22,6 +27,9 @@ export interface Book {
   /** First "real exercise" page, used by the random-exercise button */
   minExercisePage: number;
   sections: Section[];
+  /** Per-book image extension; set for books uploaded via the admin UI.
+   *  Compiled-in books leave it unset and use appConfig.imageFormat. */
+  imageFormat?: string;
 }
 
 export const DEFAULT_BOOK_ID = 'arban';

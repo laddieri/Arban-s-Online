@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 import { Section } from '@/config/tocSections';
-import { Book, books } from '@/config/books';
+import type { Book } from '@/config/books';
+import { useBooks } from '@/hooks/useBooks';
 import { searchToc } from '@/utils/tocSearch';
 
 interface TableOfContentsProps {
@@ -15,6 +16,7 @@ interface TableOfContentsProps {
 
 
 export default function TableOfContents({ book, onBookChange, onPageSelect, currentPage }: TableOfContentsProps) {
+  const { books } = useBooks();
   // Track which sections are expanded by key (e.g. "0", "0-1", "0-1-2" for nested)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
