@@ -40,3 +40,4 @@ next-env.d.ts
 
 # PDF file (too large for git - add separately)
 /public/arbans-method.pdf
+/public/pdfjs/
