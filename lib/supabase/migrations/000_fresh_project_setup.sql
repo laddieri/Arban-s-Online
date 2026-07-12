@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-006).
+-- (it currently reflects schema.sql + migrations 001-007).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -85,6 +85,10 @@ CREATE POLICY "Admins can view all submissions"
 
 CREATE POLICY "Admins can update submissions"
   ON video_submissions FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()::text));
+
+CREATE POLICY "Admins can delete submissions"
+  ON video_submissions FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()::text));
 
 -- Automatically stamp reviewed_at when a submission is approved/rejected

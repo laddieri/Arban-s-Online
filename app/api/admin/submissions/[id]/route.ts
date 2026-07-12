@@ -77,16 +77,27 @@ export async function DELETE(
     if ('error' in auth) return auth.error;
     const { supabase } = auth;
 
-    const { error } = await supabase
+    // select() makes the delete return the removed rows: zero rows means
+    // nothing was deleted (bad id, or an RLS policy filtered it out) and
+    // must not be reported as success
+    const { data, error } = await supabase
       .from('video_submissions')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) {
       console.error('Database error:', error);
       return NextResponse.json(
         { error: 'Failed to delete submission' },
         { status: 500 }
+      );
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json(
+        { error: 'Submission not found or blocked by database policy (run migration 007)' },
+        { status: 404 }
       );
     }
 
