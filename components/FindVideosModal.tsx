@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
+import { buildVideoSearchQuery } from '@/utils/videoQuery';
+import { getBook } from '@/lib/books/registry';
 
 interface SearchResult {
   videoId: string;
@@ -32,39 +34,34 @@ export default function FindVideosModal({
   onClose,
   onAttached,
 }: FindVideosModalProps) {
-  const [query, setQuery] = useState('');
+  // The suggested query is shown (and editable) before anything is sent
+  // to YouTube - nothing is searched until the admin presses Search
+  const [query, setQuery] = useState(() => buildVideoSearchQuery(getBook(bookId), page));
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attached, setAttached] = useState<Set<string>>(new Set());
   const [attaching, setAttaching] = useState<string | null>(null);
 
-  const search = useCallback(
-    async (q?: string) => {
-      setIsSearching(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({ book: bookId, page: String(page) });
-        if (q) params.set('q', q);
-        const res = await fetch(`/api/admin/videos/search?${params}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Search failed');
-        setQuery(data.query);
-        setResults(data.results ?? []);
-      } catch (err: any) {
-        setError(err.message || 'Search failed');
-        setResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    },
-    [bookId, page]
-  );
-
-  // Search immediately with the TOC-derived default query
-  useEffect(() => {
-    search();
-  }, [search]);
+  const search = async () => {
+    setIsSearching(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ book: bookId, page: String(page), q: query });
+      const res = await fetch(`/api/admin/videos/search?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed');
+      setQuery(data.query);
+      setResults(data.results ?? []);
+      setHasSearched(true);
+    } catch (err: any) {
+      setError(err.message || 'Search failed');
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const attach = async (result: SearchResult) => {
     setAttaching(result.videoId);
@@ -110,13 +107,14 @@ export default function FindVideosModal({
           </button>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Results attach as approved videos, visible to everyone right away.
+          Review or edit what will be searched on YouTube, then press Search.
+          Attached results are approved videos, visible to everyone right away.
         </p>
 
         <form
           onSubmit={e => {
             e.preventDefault();
-            search(query);
+            search();
           }}
           className="flex gap-2 mb-4"
         >
@@ -146,6 +144,11 @@ export default function FindVideosModal({
         <div className="overflow-y-auto flex-1 space-y-3" data-testid="find-videos-results">
           {isSearching ? (
             <p className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">Searching…</p>
+          ) : !hasSearched && !error ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
+              Nothing has been sent to YouTube yet - adjust the search text
+              above if needed, then press Search.
+            </p>
           ) : results.length === 0 && !error ? (
             <p className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
               No results. Try editing the query.

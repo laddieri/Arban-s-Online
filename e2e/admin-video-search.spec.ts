@@ -41,7 +41,15 @@ test('admin searches YouTube for the open page and attaches a result', async ({ 
   await page.goto('/?book=testbook&page=3');
   await page.locator('button[title="Find videos for this page"]').click();
 
-  // The modal searched immediately and shows both candidates
+  // The TOC-derived query is shown for review first - nothing has been
+  // sent to YouTube yet ("Book" is stripped as a generic word)
+  await expect(page.getByLabel('Search query')).toHaveValue('Test Section One Test trumpet');
+  await expect(page.getByText('Nothing has been sent to YouTube yet', { exact: false })).toBeVisible();
+  expect(searchedQuery).toBeNull();
+
+  // Pressing Search sends exactly that query and shows the candidates
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect.poll(() => searchedQuery).toBe('Test Section One Test trumpet');
   const results = page.locator('[data-testid="find-videos-results"]');
   await expect(results.getByText('Test Section One - performance')).toBeVisible();
   await expect(results.getByText('Brass Studio')).toBeVisible();
