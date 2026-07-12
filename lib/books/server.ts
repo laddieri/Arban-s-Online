@@ -12,6 +12,9 @@ export interface BookRow {
   title: string;
   short_title: string;
   image_prefix: string;
+  /** Number of uploaded page images (source of truth for the page range) */
+  image_count: number;
+  /** Last display page: image_count - 1 - page_offset, synced on write */
   total_pages: number;
   page_offset: number;
   min_exercise_page: number;
@@ -37,6 +40,7 @@ export function bookToRow(book: {
   id: string;
   title: string;
   shortTitle: string;
+  imageCount: number;
   totalPages: number;
   pageOffset: number;
   minExercisePage: number;
@@ -49,6 +53,7 @@ export function bookToRow(book: {
     short_title: book.shortTitle,
     // Runtime books always live under a prefix matching their id
     image_prefix: book.id,
+    image_count: book.imageCount,
     total_pages: book.totalPages,
     page_offset: book.pageOffset,
     min_exercise_page: book.minExercisePage,

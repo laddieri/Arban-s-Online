@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-007).
+-- (it currently reflects schema.sql + migrations 001-008).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -258,6 +258,9 @@ CREATE TABLE IF NOT EXISTS books (
   title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 200),
   short_title TEXT NOT NULL CHECK (char_length(short_title) BETWEEN 1 AND 60),
   image_prefix TEXT NOT NULL,
+  -- Number of uploaded page images (page-000 .. page-(n-1)); source of truth
+  image_count INTEGER NOT NULL CHECK (image_count BETWEEN 1 AND 2000),
+  -- Last display page: image_count - 1 - page_offset, maintained by the API
   total_pages INTEGER NOT NULL CHECK (total_pages BETWEEN 1 AND 2000),
   page_offset INTEGER NOT NULL DEFAULT -1 CHECK (page_offset BETWEEN -1 AND 100),
   min_exercise_page INTEGER NOT NULL DEFAULT 1,

@@ -6,6 +6,7 @@ import ImageViewer from '@/components/ImageViewer';
 import TableOfContents from '@/components/TableOfContents';
 import UserMenu from '@/components/UserMenu';
 import ListsPanel from '@/components/ListsPanel';
+import PracticeBar, { PracticeSession } from '@/components/PracticeBar';
 import { appConfig } from '@/config/app.config';
 import { addPageToHistoryDBDelayed } from '@/utils/pageHistory';
 import { getMinPage } from '@/utils/pageFormat';
@@ -37,6 +38,8 @@ function HomeContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Opened on desktop after mount; stays closed on mobile
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isListsPanelOpen, setIsListsPanelOpen] = useState(false);
+  // Active list-practice session (survives reloads within the tab)
+  const [practice, setPractice] = useState<PracticeSession | null>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const cancelHistoryTimerRef = useRef<(() => void) | null>(null);
   const restoredRef = useRef(false);
@@ -141,6 +144,38 @@ function HomeContent() {
   // Switching books resumes wherever the reader left off in that book
   const handleBookChange = (targetBookId: string) => {
     handlePageChange(resumePageFor(targetBookId), targetBookId);
+  };
+
+  // Practice sessions survive a reload within the same tab
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('arbans_practice');
+      if (saved) setPractice(JSON.parse(saved));
+    } catch {
+      // corrupt/unavailable session storage; start without a session
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      if (practice) sessionStorage.setItem('arbans_practice', JSON.stringify(practice));
+      else sessionStorage.removeItem('arbans_practice');
+    } catch {
+      // session storage unavailable; the bar still works for this page load
+    }
+  }, [practice]);
+
+  const startPractice = (session: PracticeSession) => {
+    setPractice(session);
+    const item = session.items[session.index];
+    if (item) handlePageChange(item.page, item.book);
+  };
+
+  const jumpPractice = (index: number) => {
+    if (!practice) return;
+    const item = practice.items[index];
+    if (!item) return;
+    setPractice({ ...practice, index });
+    handlePageChange(item.page, item.book);
   };
 
   // Fullscreen toggle function
@@ -261,6 +296,15 @@ function HomeContent() {
         </div>
       </header>
 
+      {/* List practice bar */}
+      {practice && !isFullscreen && (
+        <PracticeBar
+          session={practice}
+          onJump={jumpPractice}
+          onExit={() => setPractice(null)}
+        />
+      )}
+
       {/* Main Content */}
       <div className="relative flex flex-1 overflow-x-auto overflow-y-hidden">
         {/* Sidebar - Table of Contents. Positioned inside this container (not
@@ -276,6 +320,7 @@ function HomeContent() {
             onBookChange={handleBookChange}
             onPageSelect={handlePageChange}
             currentPage={currentPage}
+            onOpenLists={() => setIsListsPanelOpen(true)}
           />
         </aside>
 
@@ -313,6 +358,7 @@ function HomeContent() {
         isOpen={isListsPanelOpen}
         onClose={() => setIsListsPanelOpen(false)}
         onPageSelect={handlePageChange}
+        onStartPractice={startPractice}
         pageOffset={appConfig.pageOffset}
         baseUrl={appConfig.imageBaseUrl}
         imageFormat={appConfig.imageFormat}

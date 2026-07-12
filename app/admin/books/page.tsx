@@ -309,7 +309,7 @@ export default function AdminBooksPage() {
           id: slug,
           title: title.trim(),
           shortTitle: shortTitle.trim(),
-          totalPages: doc.numPages,
+          imageCount: doc.numPages,
           pageOffset: offsetNum,
           minExercisePage: minExNum,
           imageFormat: format,
@@ -820,6 +820,10 @@ export default function AdminBooksPage() {
                   {auditResult.blank.length > 0 && (
                     <p className="text-amber-700 dark:text-amber-400">
                       Blank ({auditResult.blank.length}): pages {auditResult.blank.join(', ')}
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">
+                        Some scans genuinely have blank pages - compare with the
+                        PDF before treating these as problems.
+                      </span>
                     </p>
                   )}
                 </div>

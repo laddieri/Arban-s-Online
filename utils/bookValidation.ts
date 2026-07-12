@@ -14,6 +14,9 @@ export interface RuntimeBookPayload {
   id: string;
   title: string;
   shortTitle: string;
+  /** Number of uploaded page images (page-000 .. page-(n-1)) */
+  imageCount: number;
+  /** Last display page, derived: imageCount - 1 - pageOffset */
   totalPages: number;
   pageOffset: number;
   minExercisePage: number;
@@ -103,14 +106,14 @@ export function validateBookPayload(
     return { error: 'shortTitle must be 1-60 characters' };
   }
 
-  const totalPages = input.totalPages;
+  const imageCount = input.imageCount;
   if (
-    typeof totalPages !== 'number' ||
-    !Number.isInteger(totalPages) ||
-    totalPages < 1 ||
-    totalPages > MAX_TOTAL_PAGES
+    typeof imageCount !== 'number' ||
+    !Number.isInteger(imageCount) ||
+    imageCount < 1 ||
+    imageCount > MAX_TOTAL_PAGES
   ) {
-    return { error: `totalPages must be an integer between 1 and ${MAX_TOTAL_PAGES}` };
+    return { error: `imageCount must be an integer between 1 and ${MAX_TOTAL_PAGES}` };
   }
 
   const pageOffset = input.pageOffset ?? -1;
@@ -121,6 +124,15 @@ export function validateBookPayload(
     pageOffset > 100
   ) {
     return { error: 'pageOffset must be an integer between -1 and 100' };
+  }
+
+  // The last display page maps to the last image file: display totalPages
+  // -> image (totalPages + pageOffset) = imageCount - 1
+  const totalPages = imageCount - 1 - pageOffset;
+  if (totalPages < 1) {
+    return {
+      error: `pageOffset ${pageOffset} is too large for ${imageCount} scanned pages`,
+    };
   }
 
   // Display pages run from minPage (negative Roman-numeral preface pages
@@ -151,6 +163,7 @@ export function validateBookPayload(
       id,
       title,
       shortTitle,
+      imageCount,
       totalPages,
       pageOffset,
       minExercisePage,
