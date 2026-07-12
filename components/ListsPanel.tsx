@@ -240,6 +240,30 @@ export default function ListsPanel({
     }
   };
 
+  // Swap an item with its neighbor, optimistically, then persist the order
+  const moveItem = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (!selectedList || target < 0 || target >= listItems.length) return;
+    const previous = listItems;
+    const next = [...listItems];
+    [next[index], next[target]] = [next[target], next[index]];
+    setListItems(next);
+    try {
+      const response = await fetch('/api/list-items/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          list_id: selectedList.id,
+          item_ids: next.map(item => item.id),
+        }),
+      });
+      if (!response.ok) throw new Error();
+    } catch {
+      setListItems(previous); // roll back; the server order stands
+      setError('Failed to save the new order');
+    }
+  };
+
   const handleListClick = (list: UserList) => {
     setSelectedList(list);
     setError(null);
@@ -361,6 +385,28 @@ export default function ListsPanel({
                           Added {new Date(item.created_at).toLocaleDateString()}
                         </div>
                       </button>
+                      <div className="flex flex-col shrink-0">
+                        <button
+                          onClick={() => moveItem(listItems.indexOf(item), -1)}
+                          disabled={listItems.indexOf(item) === 0}
+                          aria-label="Move up"
+                          className="px-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => moveItem(listItems.indexOf(item), 1)}
+                          disabled={listItems.indexOf(item) === listItems.length - 1}
+                          aria-label="Move down"
+                          className="px-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
                       <button
                         onClick={() => removeItem(item.id)}
                         className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"

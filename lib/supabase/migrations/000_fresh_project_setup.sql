@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-008).
+-- (it currently reflects schema.sql + migrations 001-009).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -158,10 +158,15 @@ CREATE TABLE IF NOT EXISTS user_list_items (
   book_id TEXT NOT NULL DEFAULT 'arban',
   title TEXT,
   description TEXT,
+  -- User-defined order within the list (the practice bar plays this order)
+  position INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT user_list_items_list_book_page_key UNIQUE (list_id, book_id, page_number)
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_list_items_position
+  ON user_list_items(list_id, position);
 
 CREATE INDEX IF NOT EXISTS idx_user_list_items_list_id ON user_list_items(list_id);
 CREATE INDEX IF NOT EXISTS idx_user_list_items_page_number ON user_list_items(page_number);

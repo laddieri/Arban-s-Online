@@ -83,3 +83,39 @@ test('practice button starts from the first item', async ({ page }) => {
   await expect(bar).toContainText('1 / 3');
   await expect(page).toHaveURL(/page=11/);
 });
+
+test('reordering items persists and practice follows the new order', async ({ page }) => {
+  let reorderPayload: { list_id: string; item_ids: string[] } | null = null;
+  await page.route('**/api/lists', route =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { lists: [LIST] } })
+      : route.fallback()
+  );
+  await page.route('**/api/list-items?list_id=l1', route =>
+    route.fulfill({ json: { items: ITEMS } })
+  );
+  await page.route('**/api/list-items/reorder', route => {
+    reorderPayload = route.request().postDataJSON();
+    return route.fulfill({ json: { message: 'Order saved' } });
+  });
+
+  await page.goto('/?page=100');
+  await page.getByRole('button', { name: 'My lists' }).click();
+  await page.getByRole('button', { name: /Warm-ups/ }).click();
+  await expect(page.getByRole('button', { name: /Zephyr Warm-up/ })).toBeVisible();
+
+  // Move the first item down: order becomes i2, i1, i3
+  await page.getByLabel('Move down').first().click();
+  await expect.poll(() => reorderPayload).not.toBeNull();
+  expect(reorderPayload!.list_id).toBe('l1');
+  expect(reorderPayload!.item_ids).toEqual(['i2', 'i1', 'i3']);
+
+  // The first item can no longer move up; practice follows the new order
+  await expect(page.getByLabel('Move up').first()).toBeDisabled();
+  await page.getByRole('button', { name: 'Practice', exact: true }).click();
+  const bar = page.locator('[data-testid="practice-bar"]');
+  await expect(bar).toContainText('1 / 3');
+  await expect(page).toHaveURL(/page=50/); // i2 is now first
+  await bar.getByTitle('Next exercise in the list').click();
+  await expect(page).toHaveURL(/page=11/); // then i1
+});
