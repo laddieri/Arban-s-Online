@@ -7,6 +7,8 @@ import type { Section } from '@/config/tocSections';
 import { loadRemoteBooks } from '@/lib/books/registry';
 import { validateBookPayload, slugFromTitle } from '@/utils/bookValidation';
 import { loadPdf, renderPageToBlob, detectWebpEncodeSupport } from '@/lib/pdfConvert';
+import { auditBookImages, AuditResult, AuditController } from '@/lib/imageAudit';
+import { useBooks } from '@/hooks/useBooks';
 import { suggestTocFromPdf, suggestTocFromImages, SuggestController } from '@/lib/tocSuggest';
 import { getMinPage } from '@/utils/pageFormat';
 
@@ -65,6 +67,13 @@ export default function AdminBooksPage() {
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [scan, setScan] = useState<{ done: number; total: number } | null>(null);
   const [scanController, setScanController] = useState<SuggestController | null>(null);
+
+  // Page-image verifier (works on every book, compiled-in ones included)
+  const { books: allBooks } = useBooks();
+  const [auditBookId, setAuditBookId] = useState('');
+  const [auditProgress, setAuditProgress] = useState<{ done: number; total: number } | null>(null);
+  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [auditController, setAuditController] = useState<AuditController | null>(null);
 
   const busy = (phase.name !== 'idle' && phase.name !== 'done') || scan !== null;
 
@@ -348,6 +357,25 @@ export default function AdminBooksPage() {
       await fetchBooks();
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const runImageAudit = async () => {
+    const book = allBooks.find(b => b.id === auditBookId);
+    if (!book) return;
+    setError(null);
+    setAuditResult(null);
+    const controller: AuditController = { cancelled: false };
+    setAuditController(controller);
+    setAuditProgress({ done: 0, total: 0 });
+    try {
+      const result = await auditBookImages(book, setAuditProgress, controller);
+      if (!controller.cancelled) setAuditResult(result);
+    } catch (err: any) {
+      setError(err.message || 'Image check failed');
+    } finally {
+      setAuditProgress(null);
+      setAuditController(null);
     }
   };
 
@@ -724,6 +752,79 @@ export default function AdminBooksPage() {
                 </li>
               ))}
             </ul>
+          )}
+        </section>
+
+        {/* Page-image verifier */}
+        <section className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">
+            Check a book&apos;s pages
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Confirms every page image loads and isn&apos;t blank. Run it after uploading a
+            book, or if readers report empty pages.
+          </p>
+          <div className="flex gap-2 items-center flex-wrap">
+            <select
+              value={auditBookId}
+              onChange={e => setAuditBookId(e.target.value)}
+              disabled={auditProgress !== null}
+              aria-label="Book to check"
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Choose a book…</option>
+              {allBooks.map(b => (
+                <option key={b.id} value={b.id}>
+                  {b.shortTitle}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={runImageAudit}
+              disabled={!auditBookId || auditProgress !== null}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition text-sm font-medium"
+            >
+              Check pages
+            </button>
+            {auditProgress && (
+              <>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {auditProgress.done} / {auditProgress.total}
+                </span>
+                <button
+                  onClick={() => {
+                    if (auditController) auditController.cancelled = true;
+                  }}
+                  className="text-sm text-red-600 hover:underline"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+          {auditResult && (
+            <div className="mt-4 text-sm" data-testid="audit-result">
+              {auditResult.missing.length === 0 && auditResult.blank.length === 0 ? (
+                <p className="text-green-700 dark:text-green-400">
+                  All {auditResult.checked} page images load correctly.
+                </p>
+              ) : (
+                <div className="space-y-1 text-gray-800 dark:text-gray-200">
+                  <p>Checked {auditResult.checked} page images:</p>
+                  {auditResult.missing.length > 0 && (
+                    <p className="text-red-700 dark:text-red-400">
+                      Missing ({auditResult.missing.length}): pages{' '}
+                      {auditResult.missing.join(', ')}
+                    </p>
+                  )}
+                  {auditResult.blank.length > 0 && (
+                    <p className="text-amber-700 dark:text-amber-400">
+                      Blank ({auditResult.blank.length}): pages {auditResult.blank.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </section>
       </main>

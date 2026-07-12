@@ -29,6 +29,11 @@ export default function AdminPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [healthReport, setHealthReport] = useState<{
+    checked: number;
+    problems: { id: string; videoId: string; title: string; book: string; page: number; problem: string }[];
+  } | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -158,6 +163,22 @@ export default function AdminPage() {
     }
   };
 
+  const runHealthCheck = async () => {
+    setHealthLoading(true);
+    setError(null);
+    setHealthReport(null);
+    try {
+      const response = await fetch('/api/admin/videos/health');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Health check failed');
+      setHealthReport(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
   if (loading && isAdmin === null) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -263,6 +284,77 @@ export default function AdminPage() {
             </button>
           </div>
         )}
+
+        {/* Video health check: flags approved videos that no longer play */}
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Video health
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Checks every approved video against YouTube for deleted, private, or
+                embed-disabled videos.
+              </p>
+            </div>
+            <button
+              onClick={runHealthCheck}
+              disabled={healthLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition text-sm font-medium"
+            >
+              {healthLoading ? 'Checking…' : 'Check video health'}
+            </button>
+          </div>
+          {healthReport && (
+            <div className="mt-4" data-testid="health-report">
+              {healthReport.problems.length === 0 ? (
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  All {healthReport.checked} videos are healthy.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                    {healthReport.problems.length} problem
+                    {healthReport.problems.length === 1 ? '' : 's'} found across{' '}
+                    {healthReport.checked} videos:
+                  </p>
+                  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {healthReport.problems.map(problem => (
+                      <li key={problem.id} className="py-2 flex items-center gap-3 text-sm">
+                        <span className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs shrink-0">
+                          {problem.problem}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">
+                          {problem.title}
+                        </span>
+                        <a
+                          href={`/?${problem.book === 'arban' ? '' : `book=${problem.book}&`}page=${problem.page}`}
+                          className="text-blue-600 hover:underline shrink-0"
+                        >
+                          page {problem.page}
+                        </a>
+                        <button
+                          onClick={async () => {
+                            await handleDelete(problem.id);
+                            setHealthReport(prev =>
+                              prev
+                                ? { ...prev, problems: prev.problems.filter(p => p.id !== problem.id) }
+                                : prev
+                            );
+                          }}
+                          disabled={actionLoading === problem.id}
+                          className="text-red-600 hover:underline shrink-0"
+                        >
+                          Delete
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">

@@ -14,6 +14,7 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
   const router = useRouter();
   const { user } = useAuthUser();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -50,8 +51,23 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
         .single();
 
       setIsAdmin(!!data);
+      if (data) {
+        // Badge: how many submissions await review
+        try {
+          const res = await fetch('/api/admin/submissions?status=pending');
+          if (res.ok) {
+            const body = await res.json();
+            setPendingCount((body.submissions ?? []).length);
+          }
+        } catch {
+          // Badge is best-effort; the dashboard still shows the queue
+        }
+      } else {
+        setPendingCount(0);
+      }
     } catch {
       setIsAdmin(false);
+      setPendingCount(0);
     }
   };
 
@@ -235,8 +251,14 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition"
+        className="relative flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition"
       >
+        {isAdmin && pendingCount > 0 && (
+          <span
+            className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900"
+            title={`${pendingCount} video submission${pendingCount === 1 ? '' : 's'} awaiting review`}
+          />
+        )}
         <svg
           className="w-5 h-5"
           fill="none"
@@ -353,6 +375,11 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
                 />
               </svg>
               Admin Dashboard
+              {pendingCount > 0 && (
+                <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full">
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           )}
           <button

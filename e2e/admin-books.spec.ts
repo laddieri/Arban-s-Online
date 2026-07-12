@@ -147,3 +147,43 @@ test('suggests TOC entries by OCR of uploaded page images (edit mode)', async ({
   // Suggested rows carry a preview strip of the scanned heading
   await expect(page.locator('[data-testid="toc-rows"] img').first()).toBeVisible();
 });
+
+test('image verifier reports missing pages', async ({ page }) => {
+  // Claims 25 pages but the testbook images stop at index 022, so display
+  // pages 21-25 (image files 023-027) are missing
+  const rtBook = {
+    id: 'rtbook',
+    title: 'Runtime Book (Mocked)',
+    shortTitle: 'Runtime Book',
+    imagePrefix: 'testbook',
+    totalPages: 25,
+    pageOffset: 2,
+    minExercisePage: 3,
+    sections: [],
+  };
+  await page.route('**/api/books**', route => route.fulfill({ json: { books: [rtBook] } }));
+  await page.route('**/api/admin/books', route =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { books: [rtBook] } })
+      : route.fallback()
+  );
+  // The proxy doesn't know the mocked book; serve its images from the
+  // local test bucket, 404ing where no file exists
+  await page.route(/\/api\/image\/\d{3}\?book=rtbook/, async route => {
+    const num = route.request().url().match(/image\/(\d{3})/)![1];
+    const upstream = await page.request.get(`http://localhost:8080/testbook/page-${num}.png`);
+    if (upstream.ok()) {
+      return route.fulfill({ body: await upstream.body(), contentType: 'image/png' });
+    }
+    return route.fulfill({ status: 404 });
+  });
+
+  await page.goto('/admin/books');
+  await page.getByLabel('Book to check').selectOption('rtbook');
+  await page.getByRole('button', { name: 'Check pages' }).click();
+
+  const result = page.locator('[data-testid="audit-result"]');
+  await expect(result).toBeVisible({ timeout: 30_000 });
+  await expect(result).toContainText('Checked 28 page images');
+  await expect(result).toContainText('Missing (5): pages 21, 22, 23, 24, 25');
+});
