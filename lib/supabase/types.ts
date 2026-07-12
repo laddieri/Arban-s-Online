@@ -76,6 +76,8 @@ export interface UserListItem {
   book_id: string;
   title?: string;
   description?: string;
+  /** User-defined order within the list */
+  position: number;
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +88,7 @@ export interface UserListItemInsert {
   book_id?: string;
   title?: string;
   description?: string;
+  position?: number;
 }
 
 export interface UserListItemUpdate {

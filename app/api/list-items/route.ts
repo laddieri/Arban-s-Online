@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     }
   }
 
-  query = query.order('created_at', { ascending: false });
+  // User-defined order; created_at breaks ties for pre-position rows
+  query = query.order('position', { ascending: true }).order('created_at', { ascending: true });
 
   const { data: items, error } = await query;
 
@@ -127,6 +128,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // New items go to the end of the list
+  const { data: lastItem } = await supabase
+    .from('user_list_items')
+    .select('position')
+    .eq('list_id', list_id)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   // Create the list item
   const newItem: UserListItemInsert = {
     list_id,
@@ -134,6 +144,7 @@ export async function POST(request: Request) {
     book_id: bookId,
     title: title?.trim() || undefined,
     description: description?.trim() || undefined,
+    position: (lastItem?.position ?? 0) + 1,
   };
 
   const { data: item, error } = await supabase
