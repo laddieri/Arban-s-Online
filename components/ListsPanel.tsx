@@ -12,6 +12,12 @@ interface ListsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onPageSelect: (page: number, bookId?: string) => void;
+  /** Start practicing a list: the viewer shows a bar to move through it */
+  onStartPractice?: (session: {
+    name: string;
+    items: { book: string; page: number; title: string | null }[];
+    index: number;
+  }) => void;
   pageOffset: number;
   baseUrl: string;
   imageFormat: string;
@@ -23,6 +29,7 @@ export default function ListsPanel({
   isOpen,
   onClose,
   onPageSelect,
+  onStartPractice,
   pageOffset,
   baseUrl,
   imageFormat,
@@ -44,11 +51,12 @@ export default function ListsPanel({
   const [editingListName, setEditingListName] = useState('');
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
 
-  // Fetch lists when panel opens
+  // Fetch lists when panel opens; re-fetch after sign-in
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen) {
       fetchLists();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user]);
 
   // Fetch items when a list is selected
@@ -58,6 +66,8 @@ export default function ListsPanel({
     }
   }, [selectedList]);
 
+  const [authRequired, setAuthRequired] = useState(false);
+
   const fetchLists = async () => {
     setLoading(true);
     setError(null);
@@ -66,6 +76,9 @@ export default function ListsPanel({
       if (response.ok) {
         const data = await response.json();
         setLists(data.lists || []);
+        setAuthRequired(false);
+      } else if (response.status === 401 || response.status === 503) {
+        setAuthRequired(true);
       } else {
         setError('Failed to load lists');
       }
@@ -201,6 +214,32 @@ export default function ListsPanel({
     onClose();
   };
 
+  const practiceItems = () =>
+    listItems.map(item => ({
+      book: item.book_id ?? DEFAULT_BOOK_ID,
+      page: item.page_number,
+      title: item.title ?? null,
+    }));
+
+  // Opening an item from a list starts practicing that list at the item;
+  // the viewer's practice bar then steps through the rest
+  const handleItemClick = (index: number) => {
+    if (onStartPractice && selectedList) {
+      onStartPractice({ name: selectedList.name, items: practiceItems(), index });
+      onClose();
+    } else {
+      const item = listItems[index];
+      handlePageClick(item.page_number, item.book_id);
+    }
+  };
+
+  const handlePracticeAll = () => {
+    if (onStartPractice && selectedList && listItems.length > 0) {
+      onStartPractice({ name: selectedList.name, items: practiceItems(), index: 0 });
+      onClose();
+    }
+  };
+
   const handleListClick = (list: UserList) => {
     setSelectedList(list);
     setError(null);
@@ -234,6 +273,18 @@ export default function ListsPanel({
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {selectedList ? selectedList.name : 'My Lists'}
             </h2>
+            {selectedList && listItems.length > 0 && onStartPractice && (
+              <button
+                onClick={handlePracticeAll}
+                className="ml-2 px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition flex items-center gap-1.5"
+                title="Practice this list from the first exercise"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Practice
+              </button>
+            )}
             {selectedList && listItems.length > 0 && new Set(listItems.map(i => i.book_id ?? DEFAULT_BOOK_ID)).size === 1 && (
               <button
                 onClick={() => setIsPrintDialogOpen(true)}
@@ -259,7 +310,7 @@ export default function ListsPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {!user ? (
+          {authRequired ? (
             <div className="text-center py-8 text-gray-600 dark:text-gray-400">
               Please sign in to view your lists.
             </div>
@@ -290,7 +341,7 @@ export default function ListsPanel({
                       className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
                     >
                       <button
-                        onClick={() => handlePageClick(item.page_number, item.book_id)}
+                        onClick={() => handleItemClick(listItems.indexOf(item))}
                         className="flex-1 text-left"
                       >
                         <div className="font-medium text-gray-900 dark:text-gray-100">

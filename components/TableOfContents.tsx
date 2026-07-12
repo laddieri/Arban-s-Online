@@ -13,10 +13,12 @@ interface TableOfContentsProps {
   onBookChange: (bookId: string) => void;
   onPageSelect: (page: number) => void;
   currentPage: number;
+  /** Opens the lists panel (practice lists live one click from the music) */
+  onOpenLists?: () => void;
 }
 
 
-export default function TableOfContents({ book, onBookChange, onPageSelect, currentPage }: TableOfContentsProps) {
+export default function TableOfContents({ book, onBookChange, onPageSelect, currentPage, onOpenLists }: TableOfContentsProps) {
   const { books } = useBooks();
   // Track which sections are expanded by key (e.g. "0", "0-1", "0-1-2" for nested)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
@@ -123,16 +125,34 @@ export default function TableOfContents({ book, onBookChange, onPageSelect, curr
           Table of Contents
         </h2>
 
-        {/* Community videos, newest first */}
+        {/* Quick links: community videos + practice lists */}
+        <div className="flex items-center gap-4 mb-3">
         <Link
           href="/videos"
-          className="flex items-center gap-1.5 mb-3 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
           </svg>
           Recent videos
         </Link>
+        {onOpenLists && (
+          <button
+            onClick={onOpenLists}
+            className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+              />
+            </svg>
+            My lists
+          </button>
+        )}
+        </div>
 
         {/* Book switcher - only shown once there is more than one book */}
         {books.length > 1 && (
