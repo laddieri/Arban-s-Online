@@ -54,7 +54,12 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('key', apiKey);
 
   try {
-    const res = await fetch(url);
+    // Identify as the site: lets API keys restricted to this domain's
+    // HTTP referrers work (server-to-server calls otherwise send none,
+    // which Google reports as 'Requests from referer <empty> are blocked')
+    const res = await fetch(url, {
+      headers: { Referer: `${request.nextUrl.origin}/` },
+    });
     const data = await res.json();
     if (!res.ok) {
       const reason = data?.error?.message ?? `YouTube API error (HTTP ${res.status})`;
