@@ -8,6 +8,7 @@ import YouTubeVideosOverlay from './YouTubeVideosOverlay';
 import VideoSubmissionForm from './VideoSubmissionForm';
 import AddToListModal from './AddToListModal';
 import AddTocEntryModal from './AddTocEntryModal';
+import FindVideosModal from './FindVideosModal';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useBooks } from '@/hooks/useBooks';
 import { isRuntimeBook } from '@/lib/books/registry';
@@ -74,6 +75,7 @@ export default function ImageViewer({
   const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isAddTocOpen, setIsAddTocOpen] = useState(false);
+  const [isFindVideosOpen, setIsFindVideosOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -763,6 +765,17 @@ export default function ImageViewer({
                 </svg>
               </button>
             )}
+            {isAdmin && (
+              <button
+                onClick={() => setIsFindVideosOpen(true)}
+                className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                title="Find videos for this page"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setIsMetronomeOpen(!isMetronomeOpen)}
               className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
@@ -941,6 +954,16 @@ export default function ImageViewer({
           page={currentPage}
           pageOffset={pageOffset}
           onClose={() => setIsAddTocOpen(false)}
+        />
+      )}
+
+      {isFindVideosOpen && (
+        <FindVideosModal
+          bookId={bookId}
+          page={currentPage}
+          pageOffset={pageOffset}
+          onClose={() => setIsFindVideosOpen(false)}
+          onAttached={refreshVideos}
         />
       )}
     </div>
