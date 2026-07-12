@@ -7,7 +7,7 @@ const valid = {
   id: 'clarke',
   title: 'Technical Studies',
   shortTitle: 'Clarke',
-  totalPages: 54,
+  imageCount: 54, // display pages 1..54 at offset -1
   pageOffset: -1,
   minExercisePage: 3,
   imageFormat: 'webp',
@@ -23,18 +23,30 @@ describe('validateBookPayload', () => {
     expect('book' in result && result.book.id).toBe('clarke');
   });
 
-  it('fills defaults for offset, minExercisePage, format, sections', () => {
+  it('fills defaults and derives the display range from the image count', () => {
     const result = validateBookPayload(
-      { id: 'clarke', title: 'T', shortTitle: 'T', totalPages: 10 },
+      { id: 'clarke', title: 'T', shortTitle: 'T', imageCount: 10 },
       RESERVED
     );
     if ('error' in result) throw new Error(result.error);
     expect(result.book).toMatchObject({
+      imageCount: 10,
+      totalPages: 10, // offset -1: display range 1..10
       pageOffset: -1,
       minExercisePage: 1,
       imageFormat: 'webp',
       sections: [],
     });
+  });
+
+  it('derives a shorter display range for preface offsets', () => {
+    // 10 images with 2 Roman-numeral preface pages: display -2..7
+    const result = validateBookPayload(
+      { id: 'clarke', title: 'T', shortTitle: 'T', imageCount: 10, pageOffset: 2 },
+      RESERVED
+    );
+    if ('error' in result) throw new Error(result.error);
+    expect(result.book.totalPages).toBe(7);
   });
 
   it('rejects bad slugs and reserved ids', () => {
@@ -45,9 +57,11 @@ describe('validateBookPayload', () => {
   });
 
   it('rejects out-of-range geometry', () => {
-    expect('error' in validateBookPayload({ ...valid, totalPages: 0 }, RESERVED)).toBe(true);
-    expect('error' in validateBookPayload({ ...valid, totalPages: 2001 }, RESERVED)).toBe(true);
+    expect('error' in validateBookPayload({ ...valid, imageCount: 0 }, RESERVED)).toBe(true);
+    expect('error' in validateBookPayload({ ...valid, imageCount: 2001 }, RESERVED)).toBe(true);
     expect('error' in validateBookPayload({ ...valid, pageOffset: -2 }, RESERVED)).toBe(true);
+    // Offset so large no display pages remain
+    expect('error' in validateBookPayload({ ...valid, pageOffset: 53 }, RESERVED)).toBe(true);
     expect('error' in validateBookPayload({ ...valid, minExercisePage: 55 }, RESERVED)).toBe(true);
     expect('error' in validateBookPayload({ ...valid, minExercisePage: 0 }, RESERVED)).toBe(true);
   });
@@ -62,7 +76,8 @@ describe('validateBookPayload', () => {
       },
       RESERVED
     );
-    expect('book' in result).toBe(true);
+    if ('error' in result) throw new Error(result.error);
+    expect(result.book.totalPages).toBe(46); // 54 images - 1 - 7
   });
 
   it('validates section entries', () => {

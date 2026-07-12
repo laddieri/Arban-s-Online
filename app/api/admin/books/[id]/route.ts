@@ -34,13 +34,16 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  // Merge the editable fields over the stored row, then validate the result
+  // Merge the editable fields over the stored row, then validate the result.
+  // imageCount is fixed (it's how many images exist in the bucket); the
+  // display range (total_pages) is re-derived from it, so changing the
+  // page offset keeps the last display page pointing at a real image.
   const result = validateBookPayload(
     {
       id: row.id,
       title: body.title ?? row.title,
       shortTitle: body.shortTitle ?? row.short_title,
-      totalPages: row.total_pages,
+      imageCount: row.image_count,
       pageOffset: body.pageOffset ?? row.page_offset,
       minExercisePage: body.minExercisePage ?? row.min_exercise_page,
       imageFormat: row.image_format,

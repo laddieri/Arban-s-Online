@@ -51,13 +51,13 @@ test('admin converts and uploads a PDF book', async ({ page }) => {
   expect(registered).not.toBeNull();
   const reg = registered! as {
     id: string;
-    totalPages: number;
+    imageCount: number;
     imageFormat: string;
     pageOffset: number;
     sections: { title: string; page: number }[];
   };
   expect(reg.id).toBe(UPLOAD_SLUG);
-  expect(reg.totalPages).toBe(5);
+  expect(reg.imageCount).toBe(5);
   expect(['webp', 'png']).toContain(reg.imageFormat);
   expect(reg.pageOffset).toBe(-1);
   expect(reg.sections).toEqual([{ title: 'First Study', page: 2 }]);
