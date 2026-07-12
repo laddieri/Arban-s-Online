@@ -112,6 +112,18 @@ The free quota is 10,000 units/day; each search costs 100 units, so about
 pieces ("The Carnival of Venice") to search much better than numbered
 exercises; edit the query when the defaults miss.
 
+## Maintenance tools
+
+- **Video health** (admin dashboard): checks every approved video against
+  YouTube and lists the ones that no longer play - deleted, private, or
+  embedding disabled - with one-click delete. Costs 1 quota unit per 50
+  videos, so run it as often as you like (monthly is plenty).
+- **Check a book's pages** (Manage Books page): sweeps a book's page images
+  and reports missing or blank pages. Run it after each upload, or if a
+  reader reports empty pages.
+- **Pending badge**: when video submissions await review, the account
+  button shows a red dot and the Admin Dashboard menu item shows the count.
+
 ## Troubleshooting
 
 - **Pages render blank / white**: the PDF's scan images use a codec (JBIG2,
