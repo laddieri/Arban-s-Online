@@ -141,8 +141,29 @@ test.describe('on a phone with the Web Share API', () => {
     await shareButton.click();
     const shared = await page.evaluate(() => (window as any).__shared);
     expect(shared.fileName).toMatch(/arban-page-11\.(webm|mp4)/);
-    expect(shared.fileType).toMatch(/^video\//);
+    // Bare container type: a ";codecs=" suffix makes Chrome reject share()
+    expect(shared.fileType).toMatch(/^video\/(webm|mp4)$/);
     expect(shared.fileSize).toBeGreaterThan(10_000);
     expect(shared.title).toBe("#1 --> #6 — Arban's Method, page 11");
+  });
+
+  test('a share failure shows instructions and falls back to download', async ({ page }) => {
+    await page.addInitScript(() => {
+      (navigator as any).canShare = (data: any) => !!data?.files?.length;
+      (navigator as any).share = () => {
+        const err = new Error('Permission denied');
+        err.name = 'NotAllowedError';
+        return Promise.reject(err);
+      };
+    });
+
+    await page.goto('/?page=11');
+    const overlay = await recordATake(page);
+
+    await overlay.locator('[data-testid="share-take"]').click();
+    await expect(overlay.getByText(/Sharing is not working on this device/)).toBeVisible();
+    // Fallback layout: a prominent download button and the upload page link
+    await expect(overlay.getByRole('link', { name: '1. Download' })).toBeVisible();
+    await expect(overlay.getByRole('link', { name: /YouTube ↗/ })).toBeVisible();
   });
 });
