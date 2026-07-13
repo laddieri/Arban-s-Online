@@ -111,3 +111,38 @@ test('private recordings show with a badge and can be removed', async ({ page })
   await page.getByLabel('Remove from my recordings').click();
   await expect.poll(() => deletedId).toBe('pv1');
 });
+
+test.describe('on a phone with the Web Share API', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('sharing hands the video file to the share sheet', async ({ page }) => {
+    // Linux Chromium has no Web Share; simulate an Android-like environment
+    await page.addInitScript(() => {
+      (navigator as any).canShare = (data: any) => !!data?.files?.length;
+      (navigator as any).share = (data: any) => {
+        (window as any).__shared = {
+          fileName: data.files?.[0]?.name,
+          fileType: data.files?.[0]?.type,
+          fileSize: data.files?.[0]?.size,
+          title: data.title,
+        };
+        return Promise.resolve();
+      };
+    });
+
+    await page.goto('/?page=11');
+    const overlay = await recordATake(page);
+
+    // Share-first layout: no youtube.com/upload link, download demoted
+    const shareButton = overlay.locator('[data-testid="share-take"]');
+    await expect(shareButton).toBeVisible();
+    await expect(overlay.getByRole('link', { name: /YouTube ↗/ })).toHaveCount(0);
+
+    await shareButton.click();
+    const shared = await page.evaluate(() => (window as any).__shared);
+    expect(shared.fileName).toMatch(/arban-page-11\.(webm|mp4)/);
+    expect(shared.fileType).toMatch(/^video\//);
+    expect(shared.fileSize).toBeGreaterThan(10_000);
+    expect(shared.title).toBe("#1 --> #6 — Arban's Method, page 11");
+  });
+});
