@@ -38,6 +38,7 @@ export default function RecorderOverlay({
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [fileExt, setFileExt] = useState('webm');
   const [copied, setCopied] = useState(false);
   // While recording the card collapses to a tiny pill so the top line of
@@ -108,6 +109,7 @@ export default function RecorderOverlay({
     };
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+      setRecordedBlob(blob);
       setRecordingUrl(prev => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(blob);
@@ -131,7 +133,31 @@ export default function RecorderOverlay({
   const retake = () => {
     if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     setRecordingUrl(null);
+    setRecordedBlob(null);
     startCamera();
+  };
+
+  // On Android/iOS the system share sheet can hand the video file straight
+  // to the YouTube app's upload flow - far more reliable than a
+  // youtube.com/upload link, which Android reroutes to the app where it
+  // dead-ends. Desktop browsers don't support file sharing and keep the
+  // download + upload-page flow.
+  const recordedFile = recordedBlob
+    ? new File([recordedBlob], `${fileStem}.${fileExt}`, { type: recordedBlob.type })
+    : null;
+  const canShareFile =
+    recordedFile !== null &&
+    typeof navigator !== 'undefined' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [recordedFile] });
+
+  const shareToYouTube = async () => {
+    if (!recordedFile) return;
+    try {
+      await navigator.share({ files: [recordedFile], title: suggestedTitle });
+    } catch {
+      // Share sheet dismissed (or failed): the download flow remains available
+    }
   };
 
   const copyTitle = async () => {
@@ -257,38 +283,75 @@ export default function RecorderOverlay({
         {stage === 'recorded' && recordingUrl && (
           <>
             <video src={recordingUrl} controls playsInline className="w-full rounded bg-black aspect-video" data-testid="recorded-playback" />
-            <div className="grid grid-cols-2 gap-1.5">
-              <a
-                href={recordingUrl}
-                download={`${fileStem}.${fileExt}`}
-                className="px-2 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-xs font-medium text-center"
-                data-testid="download-take"
-              >
-                1. Download
-              </a>
-              <a
-                href="https://www.youtube.com/upload"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition text-xs font-medium text-center"
-              >
-                2. YouTube ↗
-              </a>
-              <button
-                type="button"
-                onClick={onSubmitLink}
-                className="px-2 py-1.5 bg-green-700 text-white rounded hover:bg-green-600 transition text-xs font-medium"
-              >
-                3. Save the link
-              </button>
-              <button
-                type="button"
-                onClick={retake}
-                className="px-2 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition text-xs"
-              >
-                Retake
-              </button>
-            </div>
+            {canShareFile ? (
+              // Phones/tablets: the share sheet hands the file straight to
+              // the YouTube app's upload flow
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={shareToYouTube}
+                  data-testid="share-take"
+                  className="col-span-2 px-2 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition text-sm font-medium"
+                >
+                  1. Share to YouTube…
+                </button>
+                <button
+                  type="button"
+                  onClick={onSubmitLink}
+                  className="px-2 py-1.5 bg-green-700 text-white rounded hover:bg-green-600 transition text-xs font-medium"
+                >
+                  2. Save the link
+                </button>
+                <button
+                  type="button"
+                  onClick={retake}
+                  className="px-2 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition text-xs"
+                >
+                  Retake
+                </button>
+                <a
+                  href={recordingUrl}
+                  download={`${fileStem}.${fileExt}`}
+                  className="col-span-2 text-center text-xs text-blue-600 hover:underline"
+                  data-testid="download-take"
+                >
+                  or download the file
+                </a>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                <a
+                  href={recordingUrl}
+                  download={`${fileStem}.${fileExt}`}
+                  className="px-2 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-xs font-medium text-center"
+                  data-testid="download-take"
+                >
+                  1. Download
+                </a>
+                <a
+                  href="https://www.youtube.com/upload"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition text-xs font-medium text-center"
+                >
+                  2. YouTube ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={onSubmitLink}
+                  className="px-2 py-1.5 bg-green-700 text-white rounded hover:bg-green-600 transition text-xs font-medium"
+                >
+                  3. Save the link
+                </button>
+                <button
+                  type="button"
+                  onClick={retake}
+                  className="px-2 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition text-xs"
+                >
+                  Retake
+                </button>
+              </div>
+            )}
             <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
               <p>
                 Suggested title{' '}
@@ -300,7 +363,11 @@ export default function RecorderOverlay({
               <p className="font-mono bg-gray-100 dark:bg-gray-900 rounded px-1.5 py-1 break-words" data-testid="suggested-title">
                 {suggestedTitle}
               </p>
-              <p>&quot;Unlisted&quot; visibility on YouTube works fine.</p>
+              <p>
+                {canShareFile
+                  ? 'Pick YouTube in the share sheet, finish the upload there ("Unlisted" works fine), then come back and save the video link.'
+                  : '"Unlisted" visibility on YouTube works fine.'}
+              </p>
             </div>
           </>
         )}
