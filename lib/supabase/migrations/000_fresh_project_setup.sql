@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-009).
+-- (it currently reflects schema.sql + migrations 001-010).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -292,6 +292,37 @@ CREATE POLICY "Admins can update books"
 CREATE POLICY "Admins can delete books"
   ON books FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()::text));
+
+-- ---------------------------------------------------------------------------
+-- Private practice recordings (user's own YouTube links, visible only to them)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_videos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  book_id TEXT NOT NULL DEFAULT 'arban',
+  page_number INTEGER NOT NULL,
+  video_id TEXT NOT NULL,
+  title TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_videos_user ON user_videos(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_videos_user_book_page
+  ON user_videos(user_id, book_id, page_number);
+
+ALTER TABLE user_videos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own recordings"
+  ON user_videos FOR SELECT TO authenticated
+  USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can add their own recordings"
+  ON user_videos FOR INSERT TO authenticated
+  WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can delete their own recordings"
+  ON user_videos FOR DELETE TO authenticated
+  USING (auth.uid()::text = user_id);
 
 -- Keep at most the latest 500 history rows per user
 CREATE OR REPLACE FUNCTION cleanup_old_history()

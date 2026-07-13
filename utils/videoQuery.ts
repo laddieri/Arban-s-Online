@@ -45,3 +45,11 @@ export function buildVideoSearchQuery(book: Book, page: number): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** Human-facing YouTube title for a recording of this page. */
+export function buildSuggestedVideoTitle(book: Book, page: number, displayPage: string): string {
+  const title = titleForPage(book, page);
+  return title
+    ? `${title} — ${book.shortTitle}, page ${displayPage}`
+    : `${book.shortTitle} — page ${displayPage}`;
+}

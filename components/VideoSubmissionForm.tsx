@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthUser } from '@/hooks/useAuthUser';
-import RecordPerformance from './RecordPerformance';
 import { getBook } from '@/lib/books/registry';
 import { titleForPage } from '@/utils/videoQuery';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
@@ -31,9 +30,6 @@ export default function VideoSubmissionForm({
   const book = getBook(bookId);
   const exerciseTitle = titleForPage(book, currentPage);
   const displayPage = formatDisplayPageNumber(currentPage, book.pageOffset);
-  const suggestedTitle = exerciseTitle
-    ? `${exerciseTitle} — ${book.shortTitle}, page ${displayPage}`
-    : `${book.shortTitle} — page ${displayPage}`;
 
   const [formData, setFormData] = useState({
     page_number: currentPage,
@@ -42,13 +38,9 @@ export default function VideoSubmissionForm({
     performer: '',
     description: '',
   });
-
-  const recorder = (
-    <RecordPerformance
-      fileStem={`${book.id}-page-${displayPage}`}
-      suggestedTitle={suggestedTitle}
-    />
-  );
+  // 'share' submits to the public approval queue; 'private' saves the
+  // video to the user's own practice log, visible only to them
+  const [visibility, setVisibility] = useState<'share' | 'private'>('share');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +75,8 @@ export default function VideoSubmissionForm({
     setError(null);
 
     try {
-      const response = await fetch('/api/videos/submit', {
+      const endpoint = visibility === 'private' ? '/api/my-videos' : '/api/videos/submit';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,7 +109,6 @@ export default function VideoSubmissionForm({
           <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
             Share a video for page {displayPage}
           </h2>
-          {recorder}
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
             Sign in to submit the link - we&apos;ll send you a magic link, no
             password needed.
@@ -167,13 +159,15 @@ export default function VideoSubmissionForm({
           Submit a Video for Page {displayPage}
         </h2>
 
-        {!success && recorder}
-
         {success ? (
           <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 p-4 rounded-lg mb-4">
-            <p className="font-medium">Video submitted successfully!</p>
+            <p className="font-medium">
+              {visibility === 'private' ? 'Saved to your recordings!' : 'Video submitted successfully!'}
+            </p>
             <p className="text-sm mt-1">
-              Your submission will be reviewed and will appear once approved.
+              {visibility === 'private'
+                ? 'Only you can see it, in this page\'s video overlay.'
+                : 'Your submission will be reviewed and will appear once approved.'}
             </p>
           </div>
         ) : (
@@ -251,6 +245,43 @@ export default function VideoSubmissionForm({
               />
             </div>
 
+            <fieldset className="space-y-1">
+              <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Who can see it?
+              </legend>
+              <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="radio"
+                  name="visibility"
+                  checked={visibility === 'share'}
+                  onChange={() => setVisibility('share')}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">Share with everyone</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                    Appears on this page for all visitors after review.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="radio"
+                  name="visibility"
+                  checked={visibility === 'private'}
+                  onChange={() => setVisibility('private')}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">Keep private (just for me)</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                    A personal practice log entry only you can see. Tip: set the
+                    video to &quot;Unlisted&quot; on YouTube.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+
             {error && (
               <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-3 rounded-lg text-sm">
                 {error}
@@ -263,7 +294,11 @@ export default function VideoSubmissionForm({
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition font-medium"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Video'}
+                {isSubmitting
+                ? 'Saving...'
+                : visibility === 'private'
+                  ? 'Save to My Recordings'
+                  : 'Submit Video'}
               </button>
               <button
                 type="button"

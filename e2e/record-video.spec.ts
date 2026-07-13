@@ -1,41 +1,46 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-// The in-browser performance recorder inside the video submission form.
-// Chromium runs with fake camera/mic devices (see playwright.config.ts);
-// recording is fully local (download + manual YouTube upload), so no
-// network mocking is needed for the recorder itself.
+// The floating performance recorder: opens over the viewer so the sheet
+// music stays visible while recording. Chromium runs with fake camera/mic
+// devices (see playwright.config.ts); recording is fully local.
 
-test('record a take, review it, and get the YouTube handoff', async ({ page }) => {
-  await page.goto('/?page=11'); // First Studies
-
-  // The add menu is available without signing in; submission handles auth
+async function recordATake(page: Page) {
   await page.locator('button[title="Add menu"]').click();
-  await page.getByRole('button', { name: 'Add a video' }).click();
+  await page.getByRole('button', { name: 'Record a video' }).click();
 
-  // Recorder starts collapsed inside the form
-  await page.locator('[data-testid="record-toggle"]').click();
-  await expect(page.getByText('nothing is uploaded', { exact: false })).toBeVisible();
+  const overlay = page.locator('[data-testid="recorder-overlay"]');
+  await expect(overlay).toBeVisible();
 
-  // Record a short take from the fake camera
-  await page.getByRole('button', { name: 'Turn on camera' }).click();
-  await page.getByRole('button', { name: /Start recording/ }).click();
+  await overlay.getByRole('button', { name: 'Turn on camera' }).click();
+
+  // The sheet music is still visible next to the live camera preview
+  await expect(page.locator('#image-container img').first()).toBeVisible();
+  await overlay.getByRole('button', { name: /Start recording/ }).click();
+  await expect(page.locator('#image-container img').first()).toBeVisible();
+
   await page.waitForTimeout(1500);
-  await page.getByRole('button', { name: /Stop/ }).click();
+  await overlay.getByRole('button', { name: /Stop/ }).click();
+  return overlay;
+}
+
+test('record with the music visible, then the YouTube handoff', async ({ page }) => {
+  await page.goto('/?page=11'); // First Studies
+  const overlay = await recordATake(page);
 
   // Review + handoff: playback, named download, YouTube link, copyable title
-  const playback = page.locator('[data-testid="recorded-playback"]');
+  const playback = overlay.locator('[data-testid="recorded-playback"]');
   await expect(playback).toBeVisible();
   await expect(playback).toHaveAttribute('src', /^blob:/);
-  await expect(page.locator('[data-testid="download-take"]')).toHaveAttribute(
+  await expect(overlay.locator('[data-testid="download-take"]')).toHaveAttribute(
     'download',
     /arban-page-11\.(webm|mp4)/
   );
-  await expect(page.getByRole('link', { name: /Upload it on YouTube/ })).toHaveAttribute(
+  await expect(overlay.getByRole('link', { name: /YouTube/ })).toHaveAttribute(
     'href',
     'https://www.youtube.com/upload'
   );
   // The most specific TOC entry covering page 11 is the "#1 --> #6" range
-  await expect(page.locator('[data-testid="suggested-title"]')).toHaveText(
+  await expect(overlay.locator('[data-testid="suggested-title"]')).toHaveText(
     "#1 --> #6 — Arban's Method, page 11"
   );
 
@@ -47,7 +52,50 @@ test('record a take, review it, and get the YouTube handoff', async ({ page }) =
   });
   expect(size).toBeGreaterThan(10_000);
 
-  // Retake goes back to a live preview
-  await page.getByRole('button', { name: 'Retake' }).click();
-  await expect(page.getByRole('button', { name: /Start recording/ })).toBeVisible();
+  // "Save the link" opens the submission form (sign-in step when anonymous)
+  await overlay.getByRole('button', { name: /Save the link/ }).click();
+  await expect(page.getByRole('heading', { name: /video for page/i })).toBeVisible();
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('the music stays visible while recording', async ({ page }) => {
+    await page.goto('/?page=11');
+    const overlay = await recordATake(page);
+    await expect(overlay.locator('[data-testid="recorded-playback"]')).toBeVisible();
+    // Retake returns to a live preview
+    await overlay.getByRole('button', { name: 'Retake' }).click();
+    await expect(overlay.getByRole('button', { name: /Start recording/ })).toBeVisible();
+    await expect(page.locator('#image-container img').first()).toBeVisible();
+  });
+});
+
+test('private recordings show with a badge and can be removed', async ({ page }) => {
+  let deletedId: string | null = null;
+  await page.route(/\/api\/my-videos\?book=arban&page=50/, route =>
+    route.fulfill({
+      json: {
+        videos: [
+          { myVideoId: 'pv1', videoId: 'abcdefghijk', title: 'My take from Tuesday', isPrivate: true },
+        ],
+      },
+    })
+  );
+  await page.route('**/api/my-videos', route => {
+    if (route.request().method() === 'DELETE') {
+      deletedId = route.request().postDataJSON().id;
+      return route.fulfill({ json: { message: 'Recording deleted' } });
+    }
+    return route.fallback();
+  });
+
+  await page.goto('/?page=50');
+  await page.locator('button[title^="View 1 video"]').click();
+  await expect(page.getByText('My take from Tuesday')).toBeVisible();
+  await expect(page.getByText('Private', { exact: true })).toBeVisible();
+
+  page.on('dialog', dialog => dialog.accept());
+  await page.getByLabel('Remove from my recordings').click();
+  await expect.poll(() => deletedId).toBe('pv1');
 });
