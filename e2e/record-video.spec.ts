@@ -16,11 +16,23 @@ async function recordATake(page: Page) {
   // The sheet music is still visible next to the live camera preview
   await expect(page.locator('#image-container img').first()).toBeVisible();
   await overlay.getByRole('button', { name: /Start recording/ }).click();
+
+  // While recording the card collapses to a small REC pill: no camera
+  // preview covering the top line of music, just timer + stop
+  const pill = page.locator('[data-testid="recorder-pill"]');
+  await expect(pill).toBeVisible();
+  await expect(overlay).toHaveCount(0);
   await expect(page.locator('#image-container img').first()).toBeVisible();
 
-  await page.waitForTimeout(1500);
-  await overlay.getByRole('button', { name: /Stop/ }).click();
-  return overlay;
+  // Peeking at the framing re-opens the preview; collapsing brings the pill back
+  await pill.getByLabel('Show the camera preview').click();
+  await expect(page.locator('[data-testid="recorder-overlay"] video')).toBeVisible();
+  await page.getByLabel('Hide the camera preview').click();
+  await expect(pill).toBeVisible();
+
+  await page.waitForTimeout(1000);
+  await pill.getByRole('button', { name: /Stop/ }).click();
+  return page.locator('[data-testid="recorder-overlay"]');
 }
 
 test('record with the music visible, then the YouTube handoff', async ({ page }) => {
