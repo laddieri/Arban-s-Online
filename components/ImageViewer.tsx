@@ -9,9 +9,11 @@ import VideoSubmissionForm from './VideoSubmissionForm';
 import AddToListModal from './AddToListModal';
 import AddTocEntryModal from './AddTocEntryModal';
 import FindVideosModal from './FindVideosModal';
+import RecorderOverlay from './RecorderOverlay';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useBooks } from '@/hooks/useBooks';
-import { isRuntimeBook } from '@/lib/books/registry';
+import { isRuntimeBook, getBook } from '@/lib/books/registry';
+import { buildSuggestedVideoTitle } from '@/utils/videoQuery';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 import { ExerciseVideo, getVideosForPage } from '@/config/exerciseVideos';
 
@@ -76,6 +78,7 @@ export default function ImageViewer({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isAddTocOpen, setIsAddTocOpen] = useState(false);
   const [isFindVideosOpen, setIsFindVideosOpen] = useState(false);
+  const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -196,7 +199,14 @@ export default function ImageViewer({
     setVideosLoading(true);
     const configVideos = bookId === 'arban' ? getVideosForPage(currentPage) : [];
     try {
-      const response = await fetch(`/api/videos/${currentPage}?book=${bookId}`);
+      const [response, mineResponse] = await Promise.all([
+        fetch(`/api/videos/${currentPage}?book=${bookId}`),
+        // Private practice recordings; 401/503 for anonymous visitors
+        fetch(`/api/my-videos?book=${bookId}&page=${currentPage}`).catch(() => null),
+      ]);
+      if (!isCurrent()) return;
+      const myVideos: ExerciseVideo[] =
+        mineResponse && mineResponse.ok ? (await mineResponse.json()).videos ?? [] : [];
       if (!isCurrent()) return;
       if (response.ok) {
         const data = await response.json();
@@ -205,9 +215,9 @@ export default function ImageViewer({
         // Merge config videos with API videos, avoiding duplicates by videoId
         const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
         const uniqueConfigVideos = configVideos.filter(v => !apiVideoIds.has(v.videoId));
-        setVideos([...uniqueConfigVideos, ...apiVideos]);
+        setVideos([...uniqueConfigVideos, ...apiVideos, ...myVideos]);
       } else {
-        setVideos(configVideos);
+        setVideos([...configVideos, ...myVideos]);
       }
     } catch (error) {
       console.error('Error fetching videos:', error);
@@ -817,6 +827,19 @@ export default function ImageViewer({
                   <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[160px]">
                     <button
                       onClick={() => {
+                        setIsRecorderOpen(true);
+                        setIsAddMenuOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle cx="12" cy="12" r="9" strokeWidth={2} />
+                        <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+                      </svg>
+                      Record a video
+                    </button>
+                    <button
+                      onClick={() => {
                         setIsSubmitFormOpen(true);
                         setIsAddMenuOpen(false);
                       }}
@@ -930,6 +953,18 @@ export default function ImageViewer({
         onClose={() => setIsVideosOpen(false)}
         videos={videos}
         initialVideoId={autoplayVideoId}
+        onDeletePrivate={async myVideoId => {
+          try {
+            const res = await fetch('/api/my-videos', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: myVideoId }),
+            });
+            if (res.ok) refreshVideos();
+          } catch (error) {
+            console.error('Failed to delete recording:', error);
+          }
+        }}
       />
 
       {/* Video Submission Form */}
@@ -956,6 +991,19 @@ export default function ImageViewer({
           page={currentPage}
           pageOffset={pageOffset}
           onClose={() => setIsAddTocOpen(false)}
+        />
+      )}
+
+      {isRecorderOpen && (
+        <RecorderOverlay
+          fileStem={`${bookId}-page-${formatDisplayPageNumber(currentPage, pageOffset)}`}
+          suggestedTitle={buildSuggestedVideoTitle(
+            getBook(bookId),
+            currentPage,
+            formatDisplayPageNumber(currentPage, pageOffset)
+          )}
+          onClose={() => setIsRecorderOpen(false)}
+          onSubmitLink={() => setIsSubmitFormOpen(true)}
         />
       )}
 

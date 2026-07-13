@@ -7,6 +7,8 @@ interface YouTubeVideosOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   videos: ExerciseVideo[];
+  /** Delete one of the user's private recordings (my-videos row id) */
+  onDeletePrivate?: (myVideoId: string) => void;
   /** Select this video and start playback as soon as it appears in the
    *  list (deep links from the recent-videos page). Applied once. */
   initialVideoId?: string | null;
@@ -26,6 +28,7 @@ export default function YouTubeVideosOverlay({
   onClose,
   videos,
   initialVideoId,
+  onDeletePrivate,
 }: YouTubeVideosOverlayProps) {
   const [position, setPosition] = useState({ x: 60, y: 60 });
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
@@ -381,8 +384,32 @@ export default function YouTubeVideosOverlay({
 
               {/* Video metadata */}
               <div className="px-2 sm:px-3 py-2 max-h-16 sm:max-h-24 overflow-y-auto overflow-x-hidden">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1 break-words">
-                  {currentVideo.title}
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1 break-words flex items-center gap-2">
+                  <span className="min-w-0">{currentVideo.title}</span>
+                  {currentVideo.isPrivate && (
+                    <span
+                      className="shrink-0 px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
+                      title="Only you can see this recording"
+                    >
+                      Private
+                    </span>
+                  )}
+                  {currentVideo.isPrivate && currentVideo.myVideoId && onDeletePrivate && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Remove this recording from your practice log?')) {
+                          onDeletePrivate(currentVideo.myVideoId!);
+                        }
+                      }}
+                      className="shrink-0 text-red-500 hover:text-red-700"
+                      title="Remove from my recordings"
+                      aria-label="Remove from my recordings"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </h3>
                 {currentVideo.performer && (
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 break-words">

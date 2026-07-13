@@ -9,6 +9,10 @@
  */
 
 export interface ExerciseVideo {
+  /** Set on the user's own private recordings (practice log) */
+  isPrivate?: boolean;
+  /** user_videos row id, for deleting a private recording */
+  myVideoId?: string;
   videoId: string;
   title: string;
   performer?: string;
