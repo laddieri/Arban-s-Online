@@ -19,6 +19,12 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     launchOptions: {
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
+      // Fake camera/mic (green test pattern + tone) so the performance
+      // recorder can be exercised without hardware or permission prompts
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+      ],
     },
   },
   webServer: [
