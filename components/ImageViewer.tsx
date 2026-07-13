@@ -800,8 +800,9 @@ export default function ImageViewer({
                 </svg>
               </button>
             )}
-            {user && (
-              <div className="relative" ref={addMenuRef}>
+            {/* Video submission is open to everyone (the form signs the
+                user in when needed); list actions stay signed-in only */}
+            <div className="relative" ref={addMenuRef}>
                 <button
                   onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
                   className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
@@ -826,6 +827,7 @@ export default function ImageViewer({
                       </svg>
                       Add a video
                     </button>
+                    {user && (
                     <button
                       onClick={() => {
                         setIsAddToListModalOpen(true);
@@ -838,10 +840,10 @@ export default function ImageViewer({
                       </svg>
                       Add to list
                     </button>
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
