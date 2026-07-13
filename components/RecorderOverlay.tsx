@@ -40,6 +40,9 @@ export default function RecorderOverlay({
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [fileExt, setFileExt] = useState('webm');
   const [copied, setCopied] = useState(false);
+  // While recording the card collapses to a tiny pill so the top line of
+  // music isn't covered; this re-opens the preview to check the framing
+  const [previewDuringRec, setPreviewDuringRec] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -89,7 +92,7 @@ export default function RecorderOverlay({
     if ((stage === 'live' || stage === 'recording') && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
     }
-  }, [stage]);
+  }, [stage, previewDuringRec]);
 
   const startRecording = () => {
     if (!streamRef.current) return;
@@ -114,6 +117,7 @@ export default function RecorderOverlay({
     };
     recorder.start();
     recorderRef.current = recorder;
+    setPreviewDuringRec(false);
     setSeconds(0);
     timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
     setStage('recording');
@@ -143,10 +147,42 @@ export default function RecorderOverlay({
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
+  if (stage === 'recording' && !previewDuringRec) {
+    // Collapsed while recording: just a REC pill so the music stays readable
+    return (
+      <div
+        data-testid="recorder-pill"
+        className="fixed right-2 top-24 sm:top-16 z-40 flex items-center gap-2 pl-3 pr-1.5 py-1.5 bg-gray-900/90 text-white rounded-full shadow-2xl text-sm"
+      >
+        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" aria-hidden />
+        <span className="font-mono">{formatTime(seconds)}</span>
+        <button
+          type="button"
+          onClick={() => setPreviewDuringRec(true)}
+          aria-label="Show the camera preview"
+          title="Check the framing"
+          className="p-1 rounded-full hover:bg-white/20 transition"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={stopRecording}
+          className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded-full font-medium transition"
+        >
+          ■ Stop
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="recorder-overlay"
-      className="fixed right-2 top-16 z-40 w-60 sm:w-72 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-300 dark:border-gray-600 overflow-hidden"
+      className="fixed right-2 top-24 sm:top-16 z-40 w-60 sm:w-72 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-300 dark:border-gray-600 overflow-hidden"
     >
       <div className="flex items-center justify-between px-3 py-1.5 bg-red-600 text-white">
         <span className="text-sm font-medium flex items-center gap-1.5">
@@ -196,13 +232,24 @@ export default function RecorderOverlay({
                 ● Start recording
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={stopRecording}
-                className="w-full px-3 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition text-sm font-medium"
-              >
-                ■ Stop ({formatTime(seconds)})
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="flex-1 px-3 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition text-sm font-medium"
+                >
+                  ■ Stop ({formatTime(seconds)})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDuringRec(false)}
+                  aria-label="Hide the camera preview"
+                  title="Collapse so the music is visible"
+                  className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm"
+                >
+                  ▾
+                </button>
+              </div>
             )}
           </>
         )}
