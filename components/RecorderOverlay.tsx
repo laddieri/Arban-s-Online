@@ -44,6 +44,9 @@ export default function RecorderOverlay({
   // While recording the card collapses to a tiny pill so the top line of
   // music isn't covered; this re-opens the preview to check the framing
   const [previewDuringRec, setPreviewDuringRec] = useState(false);
+  // Set when navigator.share() rejected for a real reason (not a dismissed
+  // sheet); switches the recorded view back to the download-first layout
+  const [shareFailed, setShareFailed] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -134,6 +137,7 @@ export default function RecorderOverlay({
     if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     setRecordingUrl(null);
     setRecordedBlob(null);
+    setShareFailed(false);
     startCamera();
   };
 
@@ -142,12 +146,21 @@ export default function RecorderOverlay({
   // youtube.com/upload link, which Android reroutes to the app where it
   // dead-ends. Desktop browsers don't support file sharing and keep the
   // download + upload-page flow.
+  //
+  // The file's MIME type must be the bare container type: MediaRecorder
+  // reports e.g. "video/webm;codecs=vp8,opus", and Chrome validates
+  // shareable files against plain types - the codecs suffix makes share()
+  // reject instantly.
   const recordedFile = recordedBlob
-    ? new File([recordedBlob], `${fileStem}.${fileExt}`, { type: recordedBlob.type })
+    ? new File([recordedBlob], `${fileStem}.${fileExt}`, {
+        type: (recordedBlob.type || 'video/webm').split(';')[0],
+      })
     : null;
   const canShareFile =
+    !shareFailed &&
     recordedFile !== null &&
     typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
     typeof navigator.canShare === 'function' &&
     navigator.canShare({ files: [recordedFile] });
 
@@ -155,8 +168,15 @@ export default function RecorderOverlay({
     if (!recordedFile) return;
     try {
       await navigator.share({ files: [recordedFile], title: suggestedTitle });
-    } catch {
-      // Share sheet dismissed (or failed): the download flow remains available
+    } catch (err) {
+      // Dismissing the share sheet is fine; anything else means sharing
+      // doesn't work on this device - say so and fall back to download
+      if ((err as DOMException)?.name === 'AbortError') return;
+      setShareFailed(true);
+      setError(
+        'Sharing is not working on this device. Use Download, then upload the ' +
+          'file in the YouTube app: tap + (Create) → Upload a video.'
+      );
     }
   };
 
