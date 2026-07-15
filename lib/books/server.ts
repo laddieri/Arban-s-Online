@@ -88,6 +88,10 @@ export async function listBooksServer(): Promise<Book[]> {
         merged = merged.concat(
           (data as BookRow[]).filter(r => !staticIds.has(r.id)).map(rowToBook)
         );
+      } else if (error) {
+        // Surface why uploaded books are absent (visible in Vercel logs);
+        // the compiled-in books still serve below
+        console.error('Failed to load runtime books:', error.message);
       }
     } catch (err) {
       // Database unreachable: serve the compiled-in books rather than fail
