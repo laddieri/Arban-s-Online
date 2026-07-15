@@ -14,6 +14,8 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useBooks } from '@/hooks/useBooks';
 import { isRuntimeBook, getBook } from '@/lib/books/registry';
 import { buildSuggestedVideoTitle } from '@/utils/videoQuery';
+import { combineSpreadBounds } from '@/utils/contentBounds';
+import { getPageContentBounds } from '@/lib/pageBounds';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 import { ExerciseVideo, getVideosForPage } from '@/config/exerciseVideos';
 
@@ -254,8 +256,15 @@ export default function ImageViewer({
   const zoomRef = useRef(zoomLevel);
   zoomRef.current = zoomLevel;
   const pendingAnchorRef = useRef<{ x: number; y: number; prevZoom: number } | null>(null);
+  // Smart fullscreen bookkeeping: the zoom to restore on exit, whether the
+  // user has zoomed by hand since entering (auto-fit then backs off), and a
+  // scroll target to apply right after an auto-fit zoom commits
+  const preFullscreenZoomRef = useRef<number | null>(null);
+  const manualZoomRef = useRef(false);
+  const pendingFitScrollRef = useRef<{ left: number; top: number } | null>(null);
 
   const applyZoom = useCallback((newZoom: number, anchor?: { x: number; y: number }) => {
+    manualZoomRef.current = true;
     setZoomLevel(prev => {
       const clamped = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
       if (clamped !== prev && anchor) {
@@ -266,8 +275,15 @@ export default function ImageViewer({
   }, []);
 
   useLayoutEffect(() => {
-    const anchor = pendingAnchorRef.current;
     const container = containerRef.current;
+    const fitScroll = pendingFitScrollRef.current;
+    pendingFitScrollRef.current = null;
+    if (fitScroll && container) {
+      container.scrollLeft = fitScroll.left;
+      container.scrollTop = fitScroll.top;
+      return;
+    }
+    const anchor = pendingAnchorRef.current;
     pendingAnchorRef.current = null;
     if (!anchor || !container) return;
     const rect = container.getBoundingClientRect();
@@ -294,6 +310,7 @@ export default function ImageViewer({
   }, [applyZoom, containerCenter]);
 
   const resetZoom = useCallback(() => {
+    manualZoomRef.current = true;
     setZoomLevel(1);
   }, []);
 
@@ -519,6 +536,72 @@ export default function ImageViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, totalPages, minPage, twoPageView, pageStep]);
 
+  // --- Smart fullscreen ---
+  // Entering fullscreen remembers the zoom to restore on exit and re-arms
+  // the auto-fit; zooming by hand while fullscreen takes back control.
+  useEffect(() => {
+    if (isFullscreen) {
+      preFullscreenZoomRef.current = zoomRef.current;
+      manualZoomRef.current = false;
+    } else if (preFullscreenZoomRef.current !== null) {
+      setZoomLevel(preFullscreenZoomRef.current);
+      preFullscreenZoomRef.current = null;
+    }
+  }, [isFullscreen]);
+
+  // While fullscreen, zoom and scroll so the printed music - not the page's
+  // white paper margins - spans (almost) the full screen width. The ink
+  // bounding box comes from sampling the page image on a canvas; pages
+  // where detection fails (blank, unreadable, CORS-blocked) keep the
+  // ordinary fullscreen behavior.
+  useEffect(() => {
+    if (!isFullscreen || isLoading || imageError || manualZoomRef.current) return;
+    const img = imageRef.current;
+    if (!img || !img.naturalWidth) return;
+
+    let cancelled = false;
+    (async () => {
+      const proxyUrl = (pageNum: number) =>
+        `/api/image/${formatPageNumber(pageNum + pageOffset)}?book=${bookId}`;
+      let box = await getPageContentBounds(currentImageUrl, proxyUrl(currentPage));
+      if (secondPage !== null) {
+        box = combineSpreadBounds(
+          box,
+          await getPageContentBounds(getImageUrl(secondPage), proxyUrl(secondPage))
+        );
+      }
+      const container = containerRef.current;
+      if (cancelled || !box || !container || manualZoomRef.current) return;
+
+      const EDGE = 0.01; // screen fraction left as breathing room per side
+      const viewWidth = container.clientWidth;
+      const fitZoom = Math.min(
+        Math.max((1 - 2 * EDGE) / (box.right - box.left), MIN_ZOOM),
+        MAX_ZOOM
+      );
+      // Layout at fitZoom: the zoomed content div is fitZoom * viewWidth
+      // wide; in a spread each page takes half of it. Scroll targets put
+      // the content box's top-left just inside the screen edge.
+      const innerWidth = fitZoom * viewWidth;
+      const pageWidth = secondPage !== null ? innerWidth / 2 : innerWidth;
+      const imgHeight = pageWidth * (img.naturalHeight / img.naturalWidth);
+      const edgePx = EDGE * viewWidth;
+      const left = Math.max(0, box.left * innerWidth - edgePx);
+      const top = Math.max(0, box.top * imgHeight - edgePx);
+      if (fitZoom === zoomRef.current) {
+        container.scrollLeft = left;
+        container.scrollTop = top;
+      } else {
+        pendingFitScrollRef.current = { left, top };
+        setZoomLevel(fitZoom);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFullscreen, isLoading, imageError, currentPage, secondPage, bookId, pageOffset]);
+
   return (
     <div className="relative h-full bg-white dark:bg-gray-900">
       {/* Left-side TOC toggle arrow - visible on desktop */}
@@ -707,7 +790,10 @@ export default function ImageViewer({
               max={MAX_ZOOM}
               step={ZOOM_STEP}
               value={zoomLevel}
-              onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+              onChange={(e) => {
+                manualZoomRef.current = true;
+                setZoomLevel(parseFloat(e.target.value));
+              }}
               className="w-24 lg:w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
               title="Zoom level"
             />

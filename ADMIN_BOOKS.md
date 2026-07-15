@@ -47,7 +47,7 @@ The browser PUTs directly to R2, which needs a CORS rule: R2 → your bucket →
 [
   {
     "AllowedOrigins": ["https://your-domain.com", "http://localhost:3000"],
-    "AllowedMethods": ["PUT"],
+    "AllowedMethods": ["GET", "PUT"],
     "AllowedHeaders": ["content-type"],
     "MaxAgeSeconds": 3600
   }
@@ -55,6 +55,13 @@ The browser PUTs directly to R2, which needs a CORS rule: R2 → your bucket →
 ```
 
 Replace `your-domain.com` with the real domain (keep localhost for dev).
+
+`PUT` is what the uploader needs; `GET` lets the viewer read page pixels
+straight from the CDN (the smart-fullscreen margin detection draws the
+image on a canvas, which requires a CORS-approved load). Without `GET`
+the feature still works but falls back to fetching through the site's
+image proxy, which counts against Vercel bandwidth instead of R2's free
+egress.
 
 ## Using it
 
