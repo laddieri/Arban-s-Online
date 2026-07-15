@@ -59,9 +59,50 @@ describe('findContentBounds', () => {
   });
 
   it('clamps padding at the image edges', () => {
-    const data = makeImage(100, 130, () => true);
+    // Music block flush against the left edge: padding must not go negative
+    const data = makeImage(100, 130, (x, y) => x < 60 && y >= 30 && y < 90);
     const bounds = findContentBounds(data, 100, 130)!;
-    expect(bounds).toEqual({ left: 0, top: 0, right: 1, bottom: 1 });
+    expect(bounds.left).toBe(0);
+    expect(bounds.right).toBeCloseTo(0.6 + 0.015, 2);
+  });
+
+  it('rejects an all-dark image as unreadable', () => {
+    expect(findContentBounds(makeImage(100, 130, () => true), 100, 130)).toBeNull();
+  });
+
+  it('detects ink relative to toned, aged paper', () => {
+    // Yellowed scan paper (~luminance 190) with dark music: a fixed "white"
+    // threshold would classify the whole page as ink
+    const data = makeImage(
+      100,
+      130,
+      (x, y) => x >= 20 && x < 80 && y >= 30 && y < 90,
+      [200, 190, 170]
+    );
+    const bounds = findContentBounds(data, 100, 130)!;
+    expect(bounds).not.toBeNull();
+    expect(bounds.left).toBeCloseTo(0.2 - 0.015, 2);
+    expect(bounds.right).toBeCloseTo(0.8 + 0.015, 2);
+    expect(bounds.top).toBeCloseTo(30 / 130 - 0.015, 2);
+  });
+
+  it('trims scanner edge bands and gutter shadow', () => {
+    // Black scan borders: full-height band on the left (gutter), full-width
+    // band along the top, plus the actual music block
+    const data = makeImage(
+      100,
+      130,
+      (x, y) =>
+        x < 8 || // gutter shadow
+        y < 5 || // top scan edge
+        (x >= 25 && x < 85 && y >= 40 && y < 100)
+    );
+    const bounds = findContentBounds(data, 100, 130)!;
+    expect(bounds).not.toBeNull();
+    expect(bounds.left).toBeCloseTo(0.25 - 0.015, 2);
+    expect(bounds.right).toBeCloseTo(0.85 + 0.015, 2);
+    expect(bounds.top).toBeCloseTo(40 / 130 - 0.015, 2);
+    expect(bounds.bottom).toBeCloseTo(100 / 130 + 0.015, 2);
   });
 
   it('rejects content too sparse to zoom to (title-only page)', () => {

@@ -1,5 +1,5 @@
 // Finds the bounding box of the printed music on a scanned page so the
-// viewer can zoom past the white paper margins ("smart fullscreen").
+// viewer can zoom past the paper margins ("smart fullscreen").
 // Pure pixel math - the browser-side image loading lives in lib/pageBounds.ts.
 
 /** Edges of the page content as fractions of the image size (0..1). */
@@ -10,14 +10,31 @@ export interface ContentBounds {
   bottom: number;
 }
 
-// A pixel darker than this luminance counts as ink. Parchment-tinted paper
-// (e.g. rgb(245,234,208), luminance ~234) must stay above it while grey
-// staff lines from a downscaled scan stay below.
-const INK_LUMINANCE = 220;
+// Ink must be this much darker than the page's own paper tone. Old scans
+// have toned/yellowed paper well below "white", so a fixed threshold would
+// classify the entire page as ink; measuring relative to the median
+// luminance (paper covers most of a page, so the median IS the paper)
+// adapts to each scan.
+const INK_DELTA = 35;
 
-// A row/column needs a few ink pixels before it counts as content, so
-// scanner dust and JPEG speckle don't stretch the box to the paper edge.
-const MIN_INK_FRACTION = 0.005;
+// ...but a pixel lighter than this is never ink, no matter the paper tone.
+const MAX_INK_LUMINANCE = 220;
+
+// A median darker than this means the image isn't a readable page scan
+// (or the sampling failed); don't trust any box derived from it.
+const MIN_PAPER_LUMINANCE = 140;
+
+// A row/column where most pixels are ink is a scanner artifact - a black
+// edge band or gutter shadow - not music. Such bands are trimmed from the
+// page edges before looking for content.
+const BORDER_INK_FRACTION = 0.7;
+// ...but never trim deeper than this into the page.
+const MAX_BORDER_TRIM = 0.2;
+
+// A row/column needs a minimum share of ink pixels before it counts as
+// content, so scanner dust and JPEG speckle don't stretch the box out to
+// the paper edge.
+const MIN_INK_FRACTION = 0.01;
 
 // Breathing room added around the detected box, as a fraction of the image.
 const PADDING = 0.015;
@@ -27,8 +44,9 @@ const PADDING = 0.015;
 const MIN_BOX_FRACTION = 0.25;
 
 /**
- * Bounding box of the dark content in an RGBA pixel buffer, or null when
- * the page is blank/too sparse to trust. Fractions of the image size.
+ * Bounding box of the printed content in an RGBA pixel buffer, or null when
+ * the page is blank, too sparse, or too degraded to trust. Fractions of the
+ * image size.
  */
 export function findContentBounds(
   data: Uint8ClampedArray,
@@ -37,34 +55,81 @@ export function findContentBounds(
 ): ContentBounds | null {
   if (width < 4 || height < 4 || data.length < width * height * 4) return null;
 
+  // Luminance per pixel + histogram for the paper tone
+  const lum = new Uint8Array(width * height);
+  const hist = new Uint32Array(256);
+  for (let p = 0, i = 0; p < lum.length; p++, i += 4) {
+    const l =
+      (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) | 0;
+    lum[p] = l;
+    hist[l]++;
+  }
+  let acc = 0;
+  let median = 255;
+  for (let l = 0; l < 256; l++) {
+    acc += hist[l];
+    if (acc >= lum.length / 2) {
+      median = l;
+      break;
+    }
+  }
+  if (median < MIN_PAPER_LUMINANCE) return null;
+  const inkBelow = Math.min(median - INK_DELTA, MAX_INK_LUMINANCE);
+
   const rowInk = new Uint32Array(height);
   const colInk = new Uint32Array(width);
   for (let y = 0; y < height; y++) {
-    const row = y * width * 4;
+    const row = y * width;
     for (let x = 0; x < width; x++) {
-      const i = row + x * 4;
-      const luminance =
-        0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      if (luminance < INK_LUMINANCE) {
+      if (lum[row + x] < inkBelow) {
         rowInk[y]++;
         colInk[x]++;
       }
     }
   }
 
-  const minRowInk = Math.max(2, Math.round(width * MIN_INK_FRACTION));
-  const minColInk = Math.max(2, Math.round(height * MIN_INK_FRACTION));
+  // Trim solid scanner bands (black edges, gutter shadow) from each edge
+  const borderRow = width * BORDER_INK_FRACTION;
+  const borderCol = height * BORDER_INK_FRACTION;
+  const maxTrimY = Math.floor(height * MAX_BORDER_TRIM);
+  const maxTrimX = Math.floor(width * MAX_BORDER_TRIM);
+  let frameTop = 0;
+  while (frameTop < maxTrimY && rowInk[frameTop] >= borderRow) frameTop++;
+  let frameBottom = height - 1;
+  while (frameBottom > height - 1 - maxTrimY && rowInk[frameBottom] >= borderRow) frameBottom--;
+  let frameLeft = 0;
+  while (frameLeft < maxTrimX && colInk[frameLeft] >= borderCol) frameLeft++;
+  let frameRight = width - 1;
+  while (frameRight > width - 1 - maxTrimX && colInk[frameRight] >= borderCol) frameRight--;
+  if (frameTop >= frameBottom || frameLeft >= frameRight) return null;
 
-  let top = 0;
-  while (top < height && rowInk[top] < minRowInk) top++;
-  if (top === height) return null;
-  let bottom = height - 1;
-  while (bottom > top && rowInk[bottom] < minRowInk) bottom--;
-  let left = 0;
-  while (left < width && colInk[left] < minColInk) left++;
-  if (left === width) return null;
-  let right = width - 1;
-  while (right > left && colInk[right] < minColInk) right--;
+  // Recount inside the trimmed frame, so a trimmed band can't inflate the
+  // counts of the rows/columns that cross it
+  const frameRowInk = new Uint32Array(height);
+  const frameColInk = new Uint32Array(width);
+  for (let y = frameTop; y <= frameBottom; y++) {
+    const row = y * width;
+    for (let x = frameLeft; x <= frameRight; x++) {
+      if (lum[row + x] < inkBelow) {
+        frameRowInk[y]++;
+        frameColInk[x]++;
+      }
+    }
+  }
+
+  const minRowInk = Math.max(3, (frameRight - frameLeft + 1) * MIN_INK_FRACTION);
+  const minColInk = Math.max(3, (frameBottom - frameTop + 1) * MIN_INK_FRACTION);
+
+  let top = frameTop;
+  while (top <= frameBottom && frameRowInk[top] < minRowInk) top++;
+  if (top > frameBottom) return null;
+  let bottom = frameBottom;
+  while (bottom > top && frameRowInk[bottom] < minRowInk) bottom--;
+  let left = frameLeft;
+  while (left <= frameRight && frameColInk[left] < minColInk) left++;
+  if (left > frameRight) return null;
+  let right = frameRight;
+  while (right > left && frameColInk[right] < minColInk) right--;
 
   const bounds: ContentBounds = {
     left: Math.max(0, left / width - PADDING),
