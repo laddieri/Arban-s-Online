@@ -7,7 +7,7 @@
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
 -- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-010).
+-- (it currently reflects schema.sql + migrations 001-011).
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):
@@ -339,3 +339,33 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------
+-- Keep-alive write target (migration 011): the keep-alive GitHub Action
+-- calls keepalive_ping() so the free-tier project always registers real
+-- database activity (read-only pings proved insufficient to prevent the
+-- inactivity pause). RLS with no policies keeps the table API-invisible;
+-- the function is the only surface and can only stamp one timestamp.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS keepalive (
+  id INT PRIMARY KEY CHECK (id = 1),
+  pinged_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO keepalive (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+ALTER TABLE keepalive ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.keepalive_ping()
+RETURNS TIMESTAMPTZ
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE keepalive SET pinged_at = NOW() WHERE id = 1
+  RETURNING pinged_at;
+$$;
+
+REVOKE ALL ON FUNCTION public.keepalive_ping() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.keepalive_ping() TO anon, authenticated;
