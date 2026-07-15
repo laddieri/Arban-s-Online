@@ -1,22 +1,26 @@
 # Prevents the Supabase free-tier project from being paused for inactivity.
 # Free projects pause after ~7 days without activity, and a project paused
-# for more than 90 days can no longer be restored. This pings the database
-# through the REST API twice a week so it always counts as active.
+# for more than 90 days can no longer be restored. This writes a timestamp
+# to the database twice a week so it always counts as active.
 #
 # Setup (repo Settings -> Secrets and variables -> Actions -> New repository secret):
 #   SUPABASE_URL       - e.g. https://abcdefgh.supabase.co
 #   SUPABASE_ANON_KEY  - the project's anon/public API key
 #
-# The query itself needs no privileges: hitting PostgREST with a valid anon
-# key registers database activity even when RLS returns zero rows.
+# It must be a WRITE: an earlier version did a read-only REST query, and the
+# project was paused for "inactivity" despite green pings twice a week.
+# keepalive_ping() (migration 011) is a SECURITY DEFINER function callable
+# with the anon key; all it can do is stamp one timestamp row.
 
 name: Supabase keep-alive
 
 on:
   schedule:
-    # Mondays and Thursdays at 09:17 UTC (odd minute avoids the top-of-hour
-    # spike when GitHub delays/drops scheduled runs)
-    - cron: '17 9 * * 1,4'
+    # Daily at 09:17 UTC (odd minute avoids the top-of-hour spike when
+    # GitHub delays/drops scheduled runs). Daily rather than twice a week:
+    # GitHub occasionally skips scheduled runs, and the ~7-day inactivity
+    # window leaves little slack when it does.
+    - cron: '17 9 * * *'
   workflow_dispatch: {}
 
 jobs:
@@ -34,16 +38,20 @@ jobs:
           fi
           status=$(curl -s -o /tmp/body -w '%{http_code}' \
             --retry 3 --retry-delay 5 --max-time 30 \
+            -X POST \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/video_submissions?select=id&limit=1")
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "$SUPABASE_URL/rest/v1/rpc/keepalive_ping")
           echo "HTTP $status"
-          # 200 = query ran; anything else means the project is unreachable
-          # (paused, deleted, or wrong secrets) - fail loudly so the scheduled
-          # run shows a red X and GitHub emails the repo owner.
+          # 200 = the timestamp write ran; anything else means the project is
+          # unreachable (paused, deleted, wrong secrets) or migration 011
+          # hasn't been applied - fail loudly so the scheduled run shows a
+          # red X and GitHub emails the repo owner.
           if [ "$status" != "200" ]; then
             cat /tmp/body
-            echo "::error::Supabase ping failed with HTTP $status - check that the project is running and the secrets are current"
+            echo "::error::Supabase keep-alive write failed with HTTP $status - check that the project is running, the secrets are current, and migration 011_keepalive.sql has been run"
             exit 1
           fi
-          echo "Supabase project is awake."
+          echo "Supabase activity recorded: $(cat /tmp/body)"
