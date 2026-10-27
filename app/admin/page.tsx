@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import Link from 'next/link';
+import { errorMessage } from '@/utils/errors';
 
 interface VideoSubmission {
   id: string;
@@ -43,6 +44,8 @@ export default function AdminPage() {
       return;
     }
     fetchSubmissions();
+    // fetchSubmissions is recreated each render; statusFilter is what it reads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, statusFilter]);
 
   const fetchSubmissions = async () => {
@@ -65,8 +68,8 @@ export default function AdminPage() {
 
       setIsAdmin(true);
       setSubmissions(data.submissions || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -89,8 +92,8 @@ export default function AdminPage() {
       }
 
       await fetchSubmissions();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setActionLoading(null);
     }
@@ -130,8 +133,8 @@ export default function AdminPage() {
       setRejectingId(null);
       setRejectionReason('');
       await fetchSubmissions();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setActionLoading(null);
     }
@@ -156,8 +159,8 @@ export default function AdminPage() {
       }
 
       await fetchSubmissions();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setActionLoading(null);
     }
@@ -172,8 +175,8 @@ export default function AdminPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Health check failed');
       setHealthReport(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setHealthLoading(false);
     }
@@ -208,7 +211,7 @@ export default function AdminPage() {
             Access Denied
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            You don't have permission to access this page.
+            You don&apos;t have permission to access this page.
           </p>
           <Link
             href="/"

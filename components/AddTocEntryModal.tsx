@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Section } from '@/config/tocSections';
 import { getBook, loadRemoteBooks } from '@/lib/books/registry';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
+import { errorMessage } from '@/utils/errors';
 
 interface AddTocEntryModalProps {
   bookId: string;
@@ -45,8 +46,8 @@ export default function AddTocEntryModal({
       if (!res.ok) throw new Error(data.error || 'Failed to save the entry');
       await loadRemoteBooks(true); // sidebar TOC picks the new entry up
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save the entry');
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save the entry'));
       setIsSaving(false);
     }
   };

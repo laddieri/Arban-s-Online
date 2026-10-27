@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
 import { buildVideoSearchQuery } from '@/utils/videoQuery';
 import { getBook } from '@/lib/books/registry';
+import { errorMessage } from '@/utils/errors';
 
 interface SearchResult {
   videoId: string;
@@ -55,8 +56,8 @@ export default function FindVideosModal({
       setQuery(data.query);
       setResults(data.results ?? []);
       setHasSearched(true);
-    } catch (err: any) {
-      setError(err.message || 'Search failed');
+    } catch (err) {
+      setError(errorMessage(err, 'Search failed'));
       setResults([]);
     } finally {
       setIsSearching(false);
@@ -82,8 +83,8 @@ export default function FindVideosModal({
       if (!res.ok) throw new Error(data.error || 'Failed to attach video');
       setAttached(prev => new Set(prev).add(result.videoId));
       onAttached();
-    } catch (err: any) {
-      setError(err.message || 'Failed to attach video');
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to attach video'));
     } finally {
       setAttaching(null);
     }
@@ -159,7 +160,6 @@ export default function FindVideosModal({
                 key={result.videoId}
                 className="flex gap-3 items-start p-2 rounded-lg border border-gray-200 dark:border-gray-700"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={result.thumbnail ?? `https://i.ytimg.com/vi/${result.videoId}/mqdefault.jpg`}
                   alt=""

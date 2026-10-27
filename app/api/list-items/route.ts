@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
   // Remove the nested user_lists data from response
   const cleanedItems = items.map(item => {
-    const { user_lists, ...rest } = item as any;
+    const { user_lists, ...rest } = item as UserListItem & { user_lists: unknown };
     return rest;
   });
 
@@ -179,7 +179,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const auth = await requireUser();
   if ('error' in auth) return auth.error;
-  const { supabase, user } = auth;
+  const { supabase } = auth;
 
   // Parse request body
   let body;
@@ -223,7 +223,7 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   const auth = await requireUser();
   if ('error' in auth) return auth.error;
-  const { supabase, user } = auth;
+  const { supabase } = auth;
 
   // Parse request body
   let body;
@@ -270,7 +270,7 @@ export async function PATCH(request: Request) {
   }
 
   // Build update object
-  const updates: any = {
+  const updates: { updated_at: string; title?: string | null; description?: string | null } = {
     updated_at: new Date().toISOString(),
   };
 

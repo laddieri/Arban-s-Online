@@ -104,7 +104,6 @@ function HomeContent() {
       restoredRef.current = true;
       navigateTo(targetBookId, resumePageFor(targetBookId));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, navigateTo, booksLoaded]);
 
   // Open the sidebar by default on desktop only; on mobile it would cover

@@ -102,7 +102,6 @@ export default function RecentVideosPage() {
                     aria-label={`Play ${video.title}`}
                     data-testid="video-facade"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`}
                       alt=""

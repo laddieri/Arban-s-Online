@@ -4,7 +4,7 @@ import { DEFAULT_BOOK_ID } from '@/config/books';
 import { isValidBookIdServer } from '@/lib/books/server';
 
 // GET - List page history for the current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const auth = await requireUser();
     if ('error' in auth) return auth.error;
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE - Clear all history for the current user
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const auth = await requireUser();
     if ('error' in auth) return auth.error;

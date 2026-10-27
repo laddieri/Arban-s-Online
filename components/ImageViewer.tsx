@@ -69,7 +69,6 @@ export default function ImageViewer({
   const [isVideosOpen, setIsVideosOpen] = useState(false);
   const [isSubmitFormOpen, setIsSubmitFormOpen] = useState(false);
   const [videos, setVideos] = useState<ExerciseVideo[]>([]);
-  const [videosLoading, setVideosLoading] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLeftNav, setShowLeftNav] = useState(false);
   const [showRightNav, setShowRightNav] = useState(false);
@@ -198,7 +197,6 @@ export default function ImageViewer({
   const refreshVideos = useCallback(async () => {
     const requestId = ++videosRequestRef.current;
     const isCurrent = () => videosRequestRef.current === requestId;
-    setVideosLoading(true);
     const configVideos = bookId === 'arban' ? getVideosForPage(currentPage) : [];
     try {
       const [response, mineResponse] = await Promise.all([
@@ -224,8 +222,6 @@ export default function ImageViewer({
     } catch (error) {
       console.error('Error fetching videos:', error);
       if (isCurrent()) setVideos(configVideos);
-    } finally {
-      if (isCurrent()) setVideosLoading(false);
     }
   }, [currentPage, bookId]);
 
@@ -715,8 +711,7 @@ export default function ImageViewer({
                 className={`h-auto transition-all duration-100 ${
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
-                onLoad={(e) => {
-                  const img = e.currentTarget;
+                onLoad={() => {
                   setIsLoading(false);
                   const container = containerRef.current;
                   // Calculate zoom to fit entire page in viewport (only on first load)

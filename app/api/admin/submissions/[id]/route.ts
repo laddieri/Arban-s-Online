@@ -30,7 +30,7 @@ export async function PATCH(
     }
 
     // Update submission
-    const updateData: any = {
+    const updateData: { status: string; reviewed_by: string; rejection_reason?: string } = {
       status,
       reviewed_by: user.id,
     };

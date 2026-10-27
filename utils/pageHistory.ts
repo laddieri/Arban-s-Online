@@ -159,7 +159,7 @@ export async function getPageHistoryDB(): Promise<PageHistoryEntry[]> {
     const data = await response.json();
 
     // Convert database format to PageHistoryEntry format
-    return (data.history || []).map((entry: any) => ({
+    return (data.history || []).map((entry: { page_number: number; viewed_at: string; book_id?: string | null }) => ({
       page: entry.page_number,
       timestamp: new Date(entry.viewed_at).getTime(),
       book: entry.book_id ?? DEFAULT_HISTORY_BOOK,

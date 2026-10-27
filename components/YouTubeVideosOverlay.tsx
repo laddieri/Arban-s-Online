@@ -325,7 +325,6 @@ export default function YouTubeVideosOverlay({
                   aria-label={`Play ${currentVideo.title}`}
                   data-testid="video-facade"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={thumbnailUrl}
                     alt=""

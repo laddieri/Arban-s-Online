@@ -6,6 +6,7 @@ import { useAuthUser } from '@/hooks/useAuthUser';
 import { getBook } from '@/lib/books/registry';
 import { titleForPage } from '@/utils/videoQuery';
 import { formatDisplayPageNumber } from '@/utils/pageFormat';
+import { errorMessage } from '@/utils/errors';
 
 interface VideoSubmissionFormProps {
   bookId?: string;
@@ -62,8 +63,8 @@ export default function VideoSubmissionForm({
       if (error) throw error;
 
       alert('Check your email for the login link!');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setIsSigningIn(false);
     }
@@ -95,8 +96,8 @@ export default function VideoSubmissionForm({
         onSuccess?.();
         onClose();
       }, 2000);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

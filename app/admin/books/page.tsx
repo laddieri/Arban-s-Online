@@ -11,6 +11,7 @@ import { auditBookImages, AuditResult, AuditController } from '@/lib/imageAudit'
 import { useBooks } from '@/hooks/useBooks';
 import { suggestTocFromPdf, suggestTocFromImages, SuggestController } from '@/lib/tocSuggest';
 import { getMinPage } from '@/utils/pageFormat';
+import { errorMessage } from '@/utils/errors';
 
 // How many page images upload in parallel. R2 handles far more, but the
 // browser tab is also rendering pages; 3 keeps memory flat on big books.
@@ -88,9 +89,9 @@ export default function AdminBooksPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to load books');
       setIsAdmin(true);
       setRuntimeBooks(data.books ?? []);
-    } catch (err: any) {
+    } catch (err) {
       setIsAdmin(true); // network hiccup, not a permissions verdict
-      setError(err.message);
+      setError(errorMessage(err));
     }
   }, []);
 
@@ -258,8 +259,8 @@ export default function AdminBooksPage() {
           setError('No titles found on the pages - the scan may not be readable. Add entries by hand.');
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Scanning failed');
+    } catch (err) {
+      setError(errorMessage(err, 'Scanning failed'));
     } finally {
       setScan(null);
       setScanController(null);
@@ -340,9 +341,9 @@ export default function AdminBooksPage() {
       setPdfFile(null);
       await loadRemoteBooks(true); // refresh the client registry
       await fetchBooks();
-    } catch (err: any) {
+    } catch (err) {
       setPhase({ name: 'idle' });
-      setError(err.message || 'Something went wrong');
+      setError(errorMessage(err, 'Something went wrong'));
     }
   };
 
@@ -355,8 +356,8 @@ export default function AdminBooksPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to delete book');
       await loadRemoteBooks(true);
       await fetchBooks();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     }
   };
 
@@ -371,8 +372,8 @@ export default function AdminBooksPage() {
     try {
       const result = await auditBookImages(book, setAuditProgress, controller);
       if (!controller.cancelled) setAuditResult(result);
-    } catch (err: any) {
-      setError(err.message || 'Image check failed');
+    } catch (err) {
+      setError(errorMessage(err, 'Image check failed'));
     } finally {
       setAuditProgress(null);
       setAuditController(null);
@@ -611,7 +612,6 @@ export default function AdminBooksPage() {
                     {row.preview && (
                       // The scanned strip the suggestion was read from, so
                       // titles can be verified without opening the book
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={row.preview}
                         alt=""
