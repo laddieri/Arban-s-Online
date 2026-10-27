@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/supabase/api';
 import { extractYouTubeVideoId } from '@/utils/youtube';
 import { DEFAULT_BOOK_ID } from '@/config/books';
 import { getBookServer } from '@/lib/books/server';
+import { isPageInBook } from '@/utils/pageFormat';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,12 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Preface pages are negative internal page numbers (down to -pageOffset)
-    if (
-      typeof page_number !== 'number' ||
-      !Number.isInteger(page_number) ||
-      page_number < -book.pageOffset ||
-      page_number > book.totalPages
-    ) {
+    if (!isPageInBook(page_number, book)) {
       return NextResponse.json(
         { error: 'Invalid page number' },
         { status: 400 }

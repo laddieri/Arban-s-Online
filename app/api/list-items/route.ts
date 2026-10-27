@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
 import { DEFAULT_BOOK_ID } from '@/config/books';
-import { isValidBookIdServer } from '@/lib/books/server';
+import { getBookServer } from '@/lib/books/server';
+import { isPageInBook, parsePageParam } from '@/utils/pageFormat';
 import type { UserListItem, UserListItemInsert } from '@/lib/supabase/types';
 
 // GET /api/list-items - Get all items for a specific list or all items for user
@@ -30,11 +31,12 @@ export async function GET(request: Request) {
   }
 
   // Filter by page_number if provided (to check if page is in any list)
-  if (pageNumber) {
-    const pageNum = parseInt(pageNumber, 10);
-    if (!isNaN(pageNum)) {
-      query = query.eq('page_number', pageNum);
+  if (pageNumber !== null) {
+    const pageNum = parsePageParam(pageNumber);
+    if (pageNum === null) {
+      return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
     }
+    query = query.eq('page_number', pageNum);
   }
 
   // User-defined order; created_at breaks ties for pre-position rows
@@ -79,7 +81,8 @@ export async function POST(request: Request) {
   const { list_id, page_number, title, description } = body;
 
   const bookId = body.book_id ?? DEFAULT_BOOK_ID;
-  if (typeof bookId !== 'string' || !(await isValidBookIdServer(bookId))) {
+  const book = typeof bookId === 'string' ? await getBookServer(bookId) : null;
+  if (!book) {
     return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
   }
 
@@ -91,9 +94,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (typeof page_number !== 'number') {
+  if (!isPageInBook(page_number, book)) {
     return NextResponse.json(
-      { error: 'Page number is required and must be a number' },
+      { error: 'Page number is required and must be within the book' },
       { status: 400 }
     );
   }

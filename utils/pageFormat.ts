@@ -104,3 +104,24 @@ export function parseDisplayPageNumber(input: string, pageOffset: number = 0): n
 export function getMinPage(pageOffset: number = 0): number {
   return -pageOffset;
 }
+
+// Strictly parse a page number from a URL segment or query param.
+// Unlike parseInt, rejects trailing junk ("12abc") and empty input.
+export function parsePageParam(value: string | null | undefined): number | null {
+  if (value == null || !/^-?\d{1,6}$/.test(value)) return null;
+  return parseInt(value, 10);
+}
+
+// True when page is an integer within a book's range: preface pages are
+// negative (down to -pageOffset), the last page is totalPages
+export function isPageInBook(
+  page: unknown,
+  book: { pageOffset: number; totalPages: number }
+): page is number {
+  return (
+    typeof page === 'number' &&
+    Number.isInteger(page) &&
+    page >= getMinPage(book.pageOffset) &&
+    page <= book.totalPages
+  );
+}

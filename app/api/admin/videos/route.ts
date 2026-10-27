@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/supabase/api';
 import { getBookServer } from '@/lib/books/server';
 import { extractYouTubeVideoId } from '@/utils/youtube';
-import { getMinPage } from '@/utils/pageFormat';
+import { isPageInBook } from '@/utils/pageFormat';
 
 // POST /api/admin/videos - attach a video to a page as already-approved
 // (used by the admin "find videos" search; community submissions still go
@@ -25,12 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   const page = body.page_number;
-  if (
-    typeof page !== 'number' ||
-    !Number.isInteger(page) ||
-    page < getMinPage(book.pageOffset) ||
-    page > book.totalPages
-  ) {
+  if (!isPageInBook(page, book)) {
     return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
   }
 

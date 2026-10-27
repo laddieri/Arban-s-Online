@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
 import { getBookServer } from '@/lib/books/server';
 import { extractYouTubeVideoId } from '@/utils/youtube';
-import { getMinPage } from '@/utils/pageFormat';
+import { isPageInBook, parsePageParam } from '@/utils/pageFormat';
 import { DEFAULT_BOOK_ID } from '@/config/books';
 
 // Private practice recordings: YouTube links of the user's own playing,
@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const bookId = params.get('book') ?? DEFAULT_BOOK_ID;
-  const page = parseInt(params.get('page') ?? '', 10);
-  if (isNaN(page)) {
+  const page = parsePageParam(params.get('page'));
+  if (page === null) {
     return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
   }
 
@@ -62,12 +62,7 @@ export async function POST(request: NextRequest) {
   }
 
   const page = body.page_number;
-  if (
-    typeof page !== 'number' ||
-    !Number.isInteger(page) ||
-    page < getMinPage(book.pageOffset) ||
-    page > book.totalPages
-  ) {
+  if (!isPageInBook(page, book)) {
     return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
   }
 

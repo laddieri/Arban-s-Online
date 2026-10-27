@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
 import { DEFAULT_BOOK_ID } from '@/config/books';
-import { isValidBookIdServer } from '@/lib/books/server';
+import { getBookServer } from '@/lib/books/server';
+import { isPageInBook } from '@/utils/pageFormat';
 
 // GET - List page history for the current user
 export async function GET() {
@@ -46,17 +47,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { page_number } = body;
 
-    // Validation
-    if (page_number === undefined || typeof page_number !== 'number') {
+    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
+    const book = typeof bookId === 'string' ? await getBookServer(bookId) : null;
+    if (!book) {
+      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
+    }
+
+    if (!isPageInBook(page_number, book)) {
       return NextResponse.json(
         { error: 'Invalid page number' },
         { status: 400 }
       );
-    }
-
-    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
-    if (typeof bookId !== 'string' || !(await isValidBookIdServer(bookId))) {
-      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
     }
 
     // Check if the same page was viewed in the last minute (avoid duplicates)
