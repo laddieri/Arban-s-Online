@@ -28,6 +28,18 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
   // NEXT_PUBLIC_GOOGLE_AUTH=1 is set in the deployment environment.
   const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH === '1';
 
+  // /auth/callback redirects with ?auth_error=1 when a sign-in link failed
+  // (usually expired or already used): reopen the dialog to say so, and drop
+  // the param so a reload doesn't repeat it
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('auth_error')) return;
+    url.searchParams.delete('auth_error');
+    window.history.replaceState(null, '', url);
+    setError('That sign-in link has expired or was already used. Enter your email to get a new one.');
+    setIsSignInOpen(true);
+  }, []);
+
   // React to sign-in/sign-out: close the sign-in modal and refresh admin status
   useEffect(() => {
     if (user) {

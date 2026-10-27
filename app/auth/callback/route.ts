@@ -8,11 +8,19 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code');
   const origin = requestUrl.origin;
 
+  // Supabase redirects here with ?error=... instead of a code when the link
+  // is expired or was already used (email scanners often pre-open links)
+  let failed = requestUrl.searchParams.has('error');
+
   if (code && isSupabaseConfigured()) {
     const supabase = await createClient();
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error('Sign-in code exchange failed:', error.message);
+      failed = true;
+    }
   }
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(`${origin}/`);
+  // The viewer reopens the sign-in dialog with an explanation on auth_error
+  return NextResponse.redirect(failed ? `${origin}/?auth_error=1` : `${origin}/`);
 }
