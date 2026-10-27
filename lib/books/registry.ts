@@ -1,6 +1,6 @@
 'use client';
 
-import { books as staticBooks, Book, DEFAULT_BOOK_ID } from '@/config/books';
+import { books as staticBooks, Book, DEFAULT_BOOK_ID, withRuntimeBooks } from '@/config/books';
 
 // Client-side book registry. Starts with the compiled-in books (so first
 // paint never waits on the network) and merges in runtime books from
@@ -49,9 +49,7 @@ export function loadRemoteBooks(force = false): Promise<void> {
   inflight = fetch(url)
     .then(res => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
     .then((data: { books?: Book[] }) => {
-      const staticIds = new Set(staticBooks.map(b => b.id));
-      const runtime = (data.books ?? []).filter(b => b && !staticIds.has(b.id));
-      current = [...staticBooks, ...runtime];
+      current = withRuntimeBooks(data.books ?? []);
     })
     .catch(() => {
       // Offline or database-less deployment: the compiled-in books stand

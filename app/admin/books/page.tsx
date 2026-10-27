@@ -2,28 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import type { Book } from '@/config/books';
-import type { Section } from '@/config/tocSections';
+import { books as staticBooks, type Book } from '@/config/books';
 import { loadRemoteBooks } from '@/lib/books/registry';
 import { validateBookPayload, slugFromTitle } from '@/utils/bookValidation';
-import { loadPdf, renderPageToBlob, detectWebpEncodeSupport } from '@/lib/pdfConvert';
-import { auditBookImages, AuditResult, AuditController } from '@/lib/imageAudit';
-import { useBooks } from '@/hooks/useBooks';
+import { loadPdf, detectWebpEncodeSupport } from '@/lib/pdfConvert';
+import { uploadAllPages } from '@/lib/pageUpload';
 import { suggestTocFromPdf, suggestTocFromImages, SuggestController } from '@/lib/tocSuggest';
+import TocEditor, { TocRow, sectionsToRows, rowsToSections } from '@/components/TocEditor';
+import BookImageAudit from '@/components/BookImageAudit';
 import { getMinPage } from '@/utils/pageFormat';
 import { errorMessage } from '@/utils/errors';
-
-// How many page images upload in parallel. R2 handles far more, but the
-// browser tab is also rendering pages; 3 keeps memory flat on big books.
-const UPLOAD_CONCURRENCY = 3;
-const UPLOAD_RETRIES = 3;
-
-interface TocRow {
-  title: string;
-  page: string; // kept as text while editing; validated on submit
-  /** Snapshot of the scanned page strip a suggestion came from (not saved) */
-  preview?: string;
-}
 
 type Phase =
   | { name: 'idle' }
@@ -31,23 +19,6 @@ type Phase =
   | { name: 'uploading'; done: number; total: number }
   | { name: 'registering' }
   | { name: 'done'; bookId: string };
-
-function sectionsToRows(sections: Section[]): TocRow[] {
-  const rows: TocRow[] = [];
-  for (const s of sections) {
-    rows.push({ title: s.title, page: String(s.page) });
-    for (const sub of s.subsections ?? []) {
-      rows.push({ title: sub.title, page: String(sub.page) });
-    }
-  }
-  return rows;
-}
-
-function rowsToSections(rows: TocRow[]): Section[] {
-  return rows
-    .filter(r => r.title.trim() !== '' || r.page.trim() !== '')
-    .map(r => ({ title: r.title.trim(), page: parseInt(r.page, 10) }));
-}
 
 export default function AdminBooksPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -68,13 +39,6 @@ export default function AdminBooksPage() {
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [scan, setScan] = useState<{ done: number; total: number } | null>(null);
   const [scanController, setScanController] = useState<SuggestController | null>(null);
-
-  // Page-image verifier (works on every book, compiled-in ones included)
-  const { books: allBooks } = useBooks();
-  const [auditBookId, setAuditBookId] = useState('');
-  const [auditProgress, setAuditProgress] = useState<{ done: number; total: number } | null>(null);
-  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
-  const [auditController, setAuditController] = useState<AuditController | null>(null);
 
   const busy = (phase.name !== 'idle' && phase.name !== 'done') || scan !== null;
 
@@ -133,78 +97,6 @@ export default function AdminBooksPage() {
   const handleTitleChange = (value: string) => {
     setTitle(value);
     if (!slugTouched && !editingId) setSlug(slugFromTitle(value));
-  };
-
-  const uploadAllPages = async (
-    doc: Awaited<ReturnType<typeof loadPdf>>,
-    bookId: string,
-    format: 'webp' | 'png'
-  ) => {
-    const total = doc.numPages;
-    let done = 0;
-    let blankCount = 0;
-    let nextPage = 1;
-
-    // Preflight: if the opening pages render blank white, the PDF's images
-    // almost certainly failed to decode (unsupported codec) - stop before
-    // spending minutes uploading a broken book.
-    const first = await renderPageToBlob(doc, 1, format);
-    const second = total > 1 ? await renderPageToBlob(doc, 2, format) : first;
-    if (first.isBlank && second.isBlank) {
-      throw new Error(
-        'The first pages rendered completely blank, which usually means this ' +
-          "PDF's images use a codec the browser could not decode. Nothing was " +
-          'published. Try a different scan of the book (or report this PDF).'
-      );
-    }
-
-    setPhase({ name: 'uploading', done: 0, total });
-
-    const uploadOne = async (pageNumber: number) => {
-      const { blob, isBlank } = await renderPageToBlob(doc, pageNumber, format);
-      if (isBlank) blankCount++;
-      for (let attempt = 1; ; attempt++) {
-        try {
-          const presign = await fetch('/api/admin/books/upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookId, pageIndex: pageNumber - 1, imageFormat: format }),
-          });
-          const presignData = await presign.json();
-          if (!presign.ok) throw new Error(presignData.error || 'Failed to presign upload');
-          const put = await fetch(presignData.url, {
-            method: 'PUT',
-            headers: { 'Content-Type': `image/${format}` },
-            body: blob,
-          });
-          if (!put.ok) throw new Error(`Upload failed with HTTP ${put.status}`);
-          return;
-        } catch (err) {
-          if (attempt >= UPLOAD_RETRIES) throw err;
-          await new Promise(r => setTimeout(r, 1000 * attempt));
-        }
-      }
-    };
-
-    const worker = async () => {
-      while (nextPage <= total) {
-        const pageNumber = nextPage++;
-        await uploadOne(pageNumber);
-        done++;
-        setPhase({ name: 'uploading', done, total });
-      }
-    };
-
-    await Promise.all(
-      Array.from({ length: Math.min(UPLOAD_CONCURRENCY, total) }, worker)
-    );
-
-    if (blankCount === total) {
-      throw new Error(
-        'Every page rendered blank - this PDF could not be converted. ' +
-          'The uploaded images should not be published; nothing was registered.'
-      );
-    }
   };
 
   // Scan the book's pages for headings and pre-fill the TOC editor.
@@ -316,14 +208,16 @@ export default function AdminBooksPage() {
           imageFormat: format,
           sections,
         };
-        const check = validateBookPayload(payload, ['arban', 'charlier', 'testbook']);
+        const check = validateBookPayload(payload, staticBooks.map(b => b.id));
         if ('error' in check) {
           setPhase({ name: 'idle' });
           setError(check.error);
           return;
         }
 
-        await uploadAllPages(doc, slug, format);
+        await uploadAllPages(doc, slug, format, (done, total) =>
+          setPhase({ name: 'uploading', done, total })
+        );
         await doc.loadingTask.destroy();
 
         setPhase({ name: 'registering' });
@@ -358,25 +252,6 @@ export default function AdminBooksPage() {
       await fetchBooks();
     } catch (err) {
       setError(errorMessage(err));
-    }
-  };
-
-  const runImageAudit = async () => {
-    const book = allBooks.find(b => b.id === auditBookId);
-    if (!book) return;
-    setError(null);
-    setAuditResult(null);
-    const controller: AuditController = { cancelled: false };
-    setAuditController(controller);
-    setAuditProgress({ done: 0, total: 0 });
-    try {
-      const result = await auditBookImages(book, setAuditProgress, controller);
-      if (!controller.cancelled) setAuditResult(result);
-    } catch (err) {
-      setError(errorMessage(err, 'Image check failed'));
-    } finally {
-      setAuditProgress(null);
-      setAuditController(null);
     }
   };
 
@@ -549,115 +424,16 @@ export default function AdminBooksPage() {
               </div>
             </div>
 
-            {/* Table of contents editor */}
-            <div>
-              <div className="flex items-center justify-between mb-1 gap-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Table of contents <span className="text-gray-400">(optional, searchable)</span>
-                </label>
-                <div className="flex gap-3 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleSuggestTitles}
-                    disabled={busy}
-                    className="text-sm text-blue-600 hover:underline disabled:opacity-50"
-                    title="Read the titles off the pages (PDF text or OCR) and pre-fill the entries"
-                  >
-                    ✨ Suggest from pages
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTocRows(rows => [...rows, { title: '', page: '' }])}
-                    disabled={busy}
-                    className="text-sm text-blue-600 hover:underline disabled:opacity-50"
-                  >
-                    + Add entry
-                  </button>
-                </div>
-              </div>
-
-              {scan && (
-                <div
-                  data-testid="scan-progress"
-                  className="mb-2 flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"
-                >
-                  <span className="shrink-0">
-                    Scanning pages… {scan.total > 0 ? `${scan.done} / ${scan.total}` : ''}
-                  </span>
-                  <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                    <div
-                      className="h-full bg-blue-600 transition-all"
-                      style={{ width: scan.total ? `${(scan.done / scan.total) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (scanController) scanController.cancelled = true;
-                    }}
-                    className="text-red-600 hover:underline shrink-0"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-              {tocRows.length === 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  No entries yet. You can add them now or come back and edit later.
-                </p>
-              )}
-              <div className="space-y-2" data-testid="toc-rows">
-                {tocRows.map((row, i) => (
-                  <div key={i}>
-                    {row.preview && (
-                      // The scanned strip the suggestion was read from, so
-                      // titles can be verified without opening the book
-                      <img
-                        src={row.preview}
-                        alt=""
-                        className="w-full max-w-md rounded border border-gray-200 dark:border-gray-700 mb-1"
-                      />
-                    )}
-                    <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={row.title}
-                      onChange={e =>
-                        setTocRows(rows =>
-                          rows.map((r, j) => (j === i ? { ...r, title: e.target.value } : r))
-                        )
-                      }
-                      placeholder="Study No. 1"
-                      disabled={busy}
-                      className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                    />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={row.page}
-                      onChange={e =>
-                        setTocRows(rows =>
-                          rows.map((r, j) => (j === i ? { ...r, page: e.target.value } : r))
-                        )
-                      }
-                      placeholder="Page"
-                      disabled={busy}
-                      className="w-20 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setTocRows(rows => rows.filter((_, j) => j !== i))}
-                      disabled={busy}
-                      aria-label={`Remove entry ${i + 1}`}
-                      className="px-2 text-gray-400 hover:text-red-500"
-                    >
-                      ✕
-                    </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TocEditor
+              rows={tocRows}
+              setRows={setTocRows}
+              busy={busy}
+              scan={scan}
+              onSuggest={handleSuggestTitles}
+              onCancelScan={() => {
+                if (scanController) scanController.cancelled = true;
+              }}
+            />
 
             {/* Progress / actions */}
             {phase.name === 'uploading' && (
@@ -755,82 +531,7 @@ export default function AdminBooksPage() {
           )}
         </section>
 
-        {/* Page-image verifier */}
-        <section className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">
-            Check a book&apos;s pages
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Confirms every page image loads and isn&apos;t blank. Run it after uploading a
-            book, or if readers report empty pages.
-          </p>
-          <div className="flex gap-2 items-center flex-wrap">
-            <select
-              value={auditBookId}
-              onChange={e => setAuditBookId(e.target.value)}
-              disabled={auditProgress !== null}
-              aria-label="Book to check"
-              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            >
-              <option value="">Choose a book…</option>
-              {allBooks.map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.shortTitle}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={runImageAudit}
-              disabled={!auditBookId || auditProgress !== null}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition text-sm font-medium"
-            >
-              Check pages
-            </button>
-            {auditProgress && (
-              <>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {auditProgress.done} / {auditProgress.total}
-                </span>
-                <button
-                  onClick={() => {
-                    if (auditController) auditController.cancelled = true;
-                  }}
-                  className="text-sm text-red-600 hover:underline"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
-          {auditResult && (
-            <div className="mt-4 text-sm" data-testid="audit-result">
-              {auditResult.missing.length === 0 && auditResult.blank.length === 0 ? (
-                <p className="text-green-700 dark:text-green-400">
-                  All {auditResult.checked} page images load correctly.
-                </p>
-              ) : (
-                <div className="space-y-1 text-gray-800 dark:text-gray-200">
-                  <p>Checked {auditResult.checked} page images:</p>
-                  {auditResult.missing.length > 0 && (
-                    <p className="text-red-700 dark:text-red-400">
-                      Missing ({auditResult.missing.length}): pages{' '}
-                      {auditResult.missing.join(', ')}
-                    </p>
-                  )}
-                  {auditResult.blank.length > 0 && (
-                    <p className="text-amber-700 dark:text-amber-400">
-                      Blank ({auditResult.blank.length}): pages {auditResult.blank.join(', ')}
-                      <span className="block text-xs text-gray-500 dark:text-gray-400">
-                        Some scans genuinely have blank pages - compare with the
-                        PDF before treating these as problems.
-                      </span>
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+        <BookImageAudit onError={setError} />
       </main>
     </div>
   );

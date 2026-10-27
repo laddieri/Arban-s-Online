@@ -6,8 +6,9 @@
 -- one expired). Paste the whole file into the Supabase SQL Editor and run it.
 --
 -- Do NOT run this on an existing project - use the numbered migrations for
--- incremental upgrades instead. This file must be kept in sync with them
--- (it currently reflects schema.sql + migrations 001-011).
+-- incremental upgrades instead. This file must be kept in sync with them:
+-- CI (scripts/check-schema-drift.sh) fails if it builds a different
+-- database than schema.sql + the numbered migrations.
 --
 -- After running:
 --   1. Add yourself as an admin (replace the values):

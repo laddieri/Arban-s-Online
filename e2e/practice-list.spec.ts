@@ -119,3 +119,78 @@ test('reordering items persists and practice follows the new order', async ({ pa
   await bar.getByTitle('Next exercise in the list').click();
   await expect(page).toHaveURL(/page=11/); // then i1
 });
+
+test("printing a list uses the list's book images, not the open book's", async ({ page, context }) => {
+  await context.addInitScript(() => {
+    window.print = () => {};
+  });
+  const testbookList = { ...LIST, id: 'l2', name: 'Quux studies' };
+  await page.route('**/api/lists', route =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { lists: [testbookList] } })
+      : route.fallback()
+  );
+  await page.route('**/api/list-items?list_id=l2', route =>
+    route.fulfill({
+      json: {
+        items: [
+          { id: 'q1', list_id: 'l2', page_number: 5, book_id: 'testbook', title: 'Quux Etude', created_at: '2026-07-01T00:00:00Z' },
+          { id: 'q2', list_id: 'l2', page_number: 6, book_id: 'testbook', title: null, created_at: '2026-07-01T00:00:00Z' },
+        ],
+      },
+    })
+  );
+
+  await page.goto('/?page=50'); // viewing Arban's
+  await page.getByRole('button', { name: 'My lists' }).click();
+  await page.getByRole('button', { name: /Quux studies/ }).click();
+  await page.getByTitle('Print pages from this list').click();
+  await page.getByRole('button', { name: 'Print', exact: true }).click();
+
+  const printedSrcs = () =>
+    page.evaluate(() => {
+      const frames = document.querySelectorAll('iframe[aria-hidden="true"]');
+      const f = frames[frames.length - 1] as HTMLIFrameElement | undefined;
+      return Array.from(f?.contentDocument?.images ?? []).map(i => i.getAttribute('src') ?? '');
+    });
+  await expect.poll(printedSrcs).toHaveLength(2);
+  const srcs = await printedSrcs();
+  for (const src of srcs) expect(src).toMatch(/\/testbook\/page-\d{3}\.png$/);
+});
+
+test('create and rename a list', async ({ page }) => {
+  let lists = [LIST];
+  await page.route('**/api/lists', async route => {
+    const req = route.request();
+    if (req.method() === 'GET') return route.fulfill({ json: { lists } });
+    const body = req.postDataJSON();
+    if (req.method() === 'POST') {
+      const list = { ...LIST, id: 'l9', name: body.name };
+      lists = [list, ...lists];
+      return route.fulfill({ json: { list } });
+    }
+    if (req.method() === 'PATCH') {
+      const list = { ...lists.find(l => l.id === body.list_id)!, name: body.name };
+      lists = lists.map(l => (l.id === list.id ? list : l));
+      return route.fulfill({ json: { list } });
+    }
+    return route.fallback();
+  });
+
+  await page.goto('/?page=50');
+  await page.getByRole('button', { name: 'My lists' }).click();
+
+  await page.getByRole('button', { name: '+ Create New List' }).click();
+  await page.getByPlaceholder('e.g., Best Tonguing Exercises').fill('Lip slurs');
+  await page.getByRole('button', { name: 'Create List' }).click();
+  await expect(page.getByRole('button', { name: 'Lip slurs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Warm-ups' })).toBeVisible();
+
+  // Rename in place; Enter saves and leaves edit mode
+  await page.getByTitle('Rename list').nth(1).click();
+  const input = page.locator('input[maxlength="100"]');
+  await input.fill('Morning warm-ups');
+  await input.press('Enter');
+  await expect(page.getByRole('button', { name: 'Morning warm-ups' })).toBeVisible();
+  await expect(input).toHaveCount(0);
+});

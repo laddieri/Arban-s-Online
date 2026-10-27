@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import PrintDialog from './PrintDialog';
 import MetronomeOverlay from './MetronomeOverlay';
@@ -10,14 +10,16 @@ import AddToListModal from './AddToListModal';
 import AddTocEntryModal from './AddTocEntryModal';
 import FindVideosModal from './FindVideosModal';
 import RecorderOverlay from './RecorderOverlay';
+import ViewerAddMenu from './ViewerAddMenu';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useBooks } from '@/hooks/useBooks';
+import { useExerciseVideos } from '@/hooks/useExerciseVideos';
+import { useZoomPan, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '@/hooks/useZoomPan';
+import { useFullscreenFit } from '@/hooks/useFullscreenFit';
+import { useEdgeHover } from '@/hooks/useEdgeHover';
 import { isRuntimeBook, getBook } from '@/lib/books/registry';
 import { buildSuggestedVideoTitle } from '@/utils/videoQuery';
-import { combineSpreadBounds } from '@/utils/contentBounds';
-import { getPageContentBounds } from '@/lib/pageBounds';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
-import { ExerciseVideo, getVideosForPage } from '@/config/exerciseVideos';
 
 interface ImageViewerProps {
   bookId: string;
@@ -37,10 +39,16 @@ interface ImageViewerProps {
   autoplayVideoId?: string | null;
 }
 
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 3;
-const ZOOM_STEP = 0.1;
+// Modal dialogs: at most one is open at a time. The metronome, videos and
+// recorder are floating tools that can stay open alongside each other and
+// under a dialog (e.g. the recorder hands off to the video form), so they
+// keep their own flags.
+type ViewerDialog = 'print' | 'submitVideo' | 'addToList' | 'addToc' | 'findVideos';
+
 const TWO_PAGE_KEY = 'arbans_two_page';
+
+// Image files are numbered with at least three digits (page-001.jpg)
+const formatPageNumber = (num: number) => num.toString().padStart(3, '0');
 
 export default function ImageViewer({
   bookId,
@@ -59,33 +67,29 @@ export default function ImageViewer({
 }: ImageViewerProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [zoomLevel, setZoomLevel] = useState(1);
   // Two-page spread view: current page + the next one side by side, like an
   // open book. Available at every screen size (a phone in landscape on a
   // music stand is a real use case); persisted in localStorage.
   const [twoPageView, setTwoPageView] = useState(false);
-  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [dialog, setDialog] = useState<ViewerDialog | null>(null);
+  const closeDialog = () => setDialog(null);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
-  const [isSubmitFormOpen, setIsSubmitFormOpen] = useState(false);
-  const [videos, setVideos] = useState<ExerciseVideo[]>([]);
+  const [isRecorderOpen, setIsRecorderOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [showLeftNav, setShowLeftNav] = useState(false);
-  const [showRightNav, setShowRightNav] = useState(false);
   const { user } = useAuthUser();
   const isAdmin = useIsAdmin();
   useBooks(); // subscribe so isRuntimeBook(bookId) resolves once books load
-  const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const [isAddTocOpen, setIsAddTocOpen] = useState(false);
-  const [isFindVideosOpen, setIsFindVideosOpen] = useState(false);
-  const [isRecorderOpen, setIsRecorderOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const initialZoomSetRef = useRef(false);
   const savedScrollRef = useRef<{ top: number; left: number } | null>(null);
-  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  const { showLeftNav, showRightNav } = useEdgeHover(isDesktop, sidebarOpen ? 320 : 0); // w-80 sidebar
+  const zoom = useZoomPan(containerRef);
+  const { setZoom } = zoom; // stable; safe in effect deps
+  const { videos, refreshVideos, deletePrivateVideo } = useExerciseVideos(bookId, currentPage);
 
   // Detect desktop viewport (lg breakpoint: 1024px)
   useEffect(() => {
@@ -96,52 +100,6 @@ export default function ImageViewer({
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
-
-  // Handle clicks outside the add menu dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
-        setIsAddMenuOpen(false);
-      }
-    };
-
-    if (isAddMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isAddMenuOpen]);
-
-  // Track mouse position for edge navigation buttons (desktop only)
-  useEffect(() => {
-    if (!isDesktop) return;
-
-    const EDGE_THRESHOLD = 80; // pixels from edge to trigger
-    const sidebarWidth = sidebarOpen ? 320 : 0; // w-80 = 320px
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const windowWidth = window.innerWidth;
-      const x = e.clientX;
-
-      // Check if near left edge (accounting for sidebar)
-      setShowLeftNav(x >= sidebarWidth && x < sidebarWidth + EDGE_THRESHOLD);
-
-      // Check if near right edge
-      setShowRightNav(x > windowWidth - EDGE_THRESHOLD);
-    };
-
-    const handleMouseLeave = () => {
-      setShowLeftNav(false);
-      setShowRightNav(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, [isDesktop, sidebarOpen]);
 
   // Keyboard navigation with arrow keys
   useEffect(() => {
@@ -189,46 +147,6 @@ export default function ImageViewer({
     // Don't reset zoom - keep the current zoom level when changing pages
   }, [currentPage]);
 
-  // Fetch videos for current page from API and merge with config videos.
-  // Rapid page changes can leave multiple requests in flight; only the
-  // latest one may write state, or a slow stale response would overwrite
-  // the current page's videos.
-  const videosRequestRef = useRef(0);
-  const refreshVideos = useCallback(async () => {
-    const requestId = ++videosRequestRef.current;
-    const isCurrent = () => videosRequestRef.current === requestId;
-    const configVideos = bookId === 'arban' ? getVideosForPage(currentPage) : [];
-    try {
-      const [response, mineResponse] = await Promise.all([
-        fetch(`/api/videos/${currentPage}?book=${bookId}`),
-        // Private practice recordings; 401/503 for anonymous visitors
-        fetch(`/api/my-videos?book=${bookId}&page=${currentPage}`).catch(() => null),
-      ]);
-      if (!isCurrent()) return;
-      const myVideos: ExerciseVideo[] =
-        mineResponse && mineResponse.ok ? (await mineResponse.json()).videos ?? [] : [];
-      if (!isCurrent()) return;
-      if (response.ok) {
-        const data = await response.json();
-        if (!isCurrent()) return;
-        const apiVideos: ExerciseVideo[] = data.videos || [];
-        // Merge config videos with API videos, avoiding duplicates by videoId
-        const apiVideoIds = new Set(apiVideos.map((v: ExerciseVideo) => v.videoId));
-        const uniqueConfigVideos = configVideos.filter(v => !apiVideoIds.has(v.videoId));
-        setVideos([...uniqueConfigVideos, ...apiVideos, ...myVideos]);
-      } else {
-        setVideos([...configVideos, ...myVideos]);
-      }
-    } catch (error) {
-      console.error('Error fetching videos:', error);
-      if (isCurrent()) setVideos(configVideos);
-    }
-  }, [currentPage, bookId]);
-
-  useEffect(() => {
-    refreshVideos();
-  }, [refreshVideos]);
-
   // Open the overlay for a deep-linked video, then consume the URL param
   // so later navigation and copied links don't re-trigger playback
   const autoplayOpenedRef = useRef(false);
@@ -244,72 +162,6 @@ export default function ImageViewer({
   }, [videos, autoplayVideoId]);
 
 
-  // --- Zoom ---
-  // All zoom changes funnel through applyZoom with an anchor point (cursor,
-  // pinch midpoint, or container center) so the content under the anchor
-  // stays put. The scroll correction runs in a layout effect after React has
-  // committed the new content width.
-  const zoomRef = useRef(zoomLevel);
-  zoomRef.current = zoomLevel;
-  const pendingAnchorRef = useRef<{ x: number; y: number; prevZoom: number } | null>(null);
-  // Smart fullscreen bookkeeping: the zoom to restore on exit, whether the
-  // user has zoomed by hand since entering (auto-fit then backs off), and a
-  // scroll target to apply right after an auto-fit zoom commits
-  const preFullscreenZoomRef = useRef<number | null>(null);
-  const manualZoomRef = useRef(false);
-  const pendingFitScrollRef = useRef<{ left: number; top: number } | null>(null);
-
-  const applyZoom = useCallback((newZoom: number, anchor?: { x: number; y: number }) => {
-    manualZoomRef.current = true;
-    setZoomLevel(prev => {
-      const clamped = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
-      if (clamped !== prev && anchor) {
-        pendingAnchorRef.current = { ...anchor, prevZoom: prev };
-      }
-      return clamped;
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const fitScroll = pendingFitScrollRef.current;
-    pendingFitScrollRef.current = null;
-    if (fitScroll && container) {
-      container.scrollLeft = fitScroll.left;
-      container.scrollTop = fitScroll.top;
-      return;
-    }
-    const anchor = pendingAnchorRef.current;
-    pendingAnchorRef.current = null;
-    if (!anchor || !container) return;
-    const rect = container.getBoundingClientRect();
-    const px = anchor.x - rect.left;
-    const py = anchor.y - rect.top;
-    const scale = zoomLevel / anchor.prevZoom;
-    container.scrollLeft = (container.scrollLeft + px) * scale - px;
-    container.scrollTop = (container.scrollTop + py) * scale - py;
-  }, [zoomLevel]);
-
-  const containerCenter = useCallback(() => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    return rect
-      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-      : undefined;
-  }, []);
-
-  const zoomIn = useCallback(() => {
-    applyZoom(zoomRef.current + ZOOM_STEP, containerCenter());
-  }, [applyZoom, containerCenter]);
-
-  const zoomOut = useCallback(() => {
-    applyZoom(zoomRef.current - ZOOM_STEP, containerCenter());
-  }, [applyZoom, containerCenter]);
-
-  const resetZoom = useCallback(() => {
-    manualZoomRef.current = true;
-    setZoomLevel(1);
-  }, []);
-
   useEffect(() => {
     try {
       setTwoPageView(localStorage.getItem(TWO_PAGE_KEY) === '1');
@@ -323,7 +175,7 @@ export default function ImageViewer({
     setTwoPageView(next);
     // Zoom 1 fits the whole spread (or page) to the container width - the
     // natural starting point after the layout change
-    setZoomLevel(1);
+    zoom.setZoom(1);
     const container = containerRef.current;
     if (container) {
       container.scrollTop = 0;
@@ -344,7 +196,7 @@ export default function ImageViewer({
       setIsLoading(false);
       if (container && !initialZoomSetRef.current) {
         // Set initial zoom: 100% on mobile, 60% on desktop
-        setZoomLevel(isDesktop ? 0.6 : 1);
+        setZoom(isDesktop ? 0.6 : 1);
         initialZoomSetRef.current = true;
         // Scroll down slightly from the top on desktop (simulate one scroll wheel click)
         if (isDesktop) {
@@ -358,118 +210,7 @@ export default function ImageViewer({
         container.scrollLeft = savedScrollRef.current.left;
       }
     }
-  }, [isDesktop, currentPage]);
-
-  // The mouse wheel zooms at the cursor, no modifier needed (trackpad pinch
-  // arrives as ctrl+wheel and behaves the same); click-drag pans instead of
-  // wheel-scrolling, so the viewer works like a map.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      // Exponential scaling keeps notched wheels (|deltaY| ~100 per click)
-      // and smooth trackpads (streams of small deltas) at a comparable rate
-      const factor = Math.exp(-e.deltaY * 0.0015);
-      applyZoom(zoomRef.current * factor, { x: e.clientX, y: e.clientY });
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [applyZoom]);
-
-  // Click-drag panning for mouse users. Native focus handling is left alone
-  // (no preventDefault on mousedown): clicking the page must still blur the
-  // page-number input so arrow keys navigate. Ghost image dragging is
-  // disabled via draggable={false} on the img and select-none while panning.
-  const [isPanning, setIsPanning] = useState(false);
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let drag: { x: number; y: number; left: number; top: number } | null = null;
-
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) return;
-      if ((e.target as HTMLElement).closest('button, input, a')) return;
-      drag = {
-        x: e.clientX,
-        y: e.clientY,
-        left: container.scrollLeft,
-        top: container.scrollTop,
-      };
-      setIsPanning(true);
-    };
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!drag) return;
-      container.scrollLeft = drag.left - (e.clientX - drag.x);
-      container.scrollTop = drag.top - (e.clientY - drag.y);
-    };
-    const handleMouseUp = () => {
-      drag = null;
-      setIsPanning(false);
-    };
-
-    container.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      container.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  // Two-finger pinch zoom (mobile/tablet), anchored at the pinch midpoint.
-  // The container's touch-action is pan-x pan-y, so single-finger panning
-  // stays native while two-finger gestures reach these handlers.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let pinch: { startDist: number; startZoom: number } | null = null;
-
-    const touchDist = (t: TouchList) =>
-      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    const touchMid = (t: TouchList) => ({
-      x: (t[0].clientX + t[1].clientX) / 2,
-      y: (t[0].clientY + t[1].clientY) / 2,
-    });
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        pinch = { startDist: touchDist(e.touches), startZoom: zoomRef.current };
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (pinch && e.touches.length === 2) {
-        e.preventDefault();
-        const dist = touchDist(e.touches);
-        if (dist > 0 && pinch.startDist > 0) {
-          applyZoom(pinch.startZoom * (dist / pinch.startDist), touchMid(e.touches));
-        }
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) {
-        pinch = null;
-      }
-    };
-
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
-    container.addEventListener('touchcancel', handleTouchEnd);
-    return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [applyZoom]);
+  }, [isDesktop, currentPage, setZoom]);
 
   const minPage = getMinPage(pageOffset);
 
@@ -499,10 +240,21 @@ export default function ImageViewer({
     }
   };
 
-  // Format page number with leading zeros (e.g., 001, 002, 003)
-  const formatPageNumber = (num: number) => {
-    return num.toString().padStart(3, '0');
-  };
+  // Editable page number (Roman numerals for preface pages); the toolbar
+  // shows one on desktop and one in the mobile navigation row
+  const pageInput = (className: string) => (
+    <input
+      type="text"
+      value={formatDisplayPageNumber(currentPage, pageOffset)}
+      onChange={(e) => {
+        const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
+        if (parsed !== null) {
+          goToPage(parsed);
+        }
+      }}
+      className={className}
+    />
+  );
 
   // Construct image URL (apply offset to convert display page number to image file number)
   // When useImageProxy is true, route through /api/image/[page] to avoid firewall blocks
@@ -532,71 +284,19 @@ export default function ImageViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, totalPages, minPage, twoPageView, pageStep]);
 
-  // --- Smart fullscreen ---
-  // Entering fullscreen remembers the zoom to restore on exit and re-arms
-  // the auto-fit; zooming by hand while fullscreen takes back control.
-  useEffect(() => {
-    if (isFullscreen) {
-      preFullscreenZoomRef.current = zoomRef.current;
-      manualZoomRef.current = false;
-    } else if (preFullscreenZoomRef.current !== null) {
-      setZoomLevel(preFullscreenZoomRef.current);
-      preFullscreenZoomRef.current = null;
-    }
-  }, [isFullscreen]);
-
-  // While fullscreen, zoom and scroll so the printed music - not the page's
-  // white paper margins - spans (almost) the full screen width. The ink
-  // bounding box comes from sampling the page image on a canvas; pages
-  // where detection fails (blank, unreadable, CORS-blocked) keep the
-  // ordinary fullscreen behavior.
-  useEffect(() => {
-    if (!isFullscreen || isLoading || imageError || manualZoomRef.current) return;
-    const img = imageRef.current;
-    if (!img || !img.naturalWidth) return;
-
-    let cancelled = false;
-    (async () => {
-      const proxyUrl = (pageNum: number) =>
-        `/api/image/${formatPageNumber(pageNum + pageOffset)}?book=${bookId}`;
-      let box = await getPageContentBounds(currentImageUrl, proxyUrl(currentPage));
-      if (secondPage !== null) {
-        box = combineSpreadBounds(
-          box,
-          await getPageContentBounds(getImageUrl(secondPage), proxyUrl(secondPage))
-        );
-      }
-      const container = containerRef.current;
-      if (cancelled || !box || !container || manualZoomRef.current) return;
-
-      const EDGE = 0.01; // screen fraction left as breathing room per side
-      const viewWidth = container.clientWidth;
-      const fitZoom = Math.min(
-        Math.max((1 - 2 * EDGE) / (box.right - box.left), MIN_ZOOM),
-        MAX_ZOOM
-      );
-      // Layout at fitZoom: the zoomed content div is fitZoom * viewWidth
-      // wide; in a spread each page takes half of it. Scroll targets put
-      // the content box's top-left just inside the screen edge.
-      const innerWidth = fitZoom * viewWidth;
-      const pageWidth = secondPage !== null ? innerWidth / 2 : innerWidth;
-      const imgHeight = pageWidth * (img.naturalHeight / img.naturalWidth);
-      const edgePx = EDGE * viewWidth;
-      const left = Math.max(0, box.left * innerWidth - edgePx);
-      const top = Math.max(0, box.top * imgHeight - edgePx);
-      if (fitZoom === zoomRef.current) {
-        container.scrollLeft = left;
-        container.scrollTop = top;
-      } else {
-        pendingFitScrollRef.current = { left, top };
-        setZoomLevel(fitZoom);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFullscreen, isLoading, imageError, currentPage, secondPage, bookId, pageOffset]);
+  useFullscreenFit({
+    isFullscreen,
+    isReady: !isLoading && !imageError,
+    currentPage,
+    secondPage,
+    bookId,
+    pageOffset,
+    imageUrl: getImageUrl,
+    proxyUrl: pageNum => `/api/image/${formatPageNumber(pageNum + pageOffset)}?book=${bookId}`,
+    containerRef,
+    imageRef,
+    zoom,
+  });
 
   return (
     <div className="relative h-full bg-white dark:bg-gray-900">
@@ -660,7 +360,7 @@ export default function ImageViewer({
         className={`h-full overflow-auto ${
           'bg-gray-100 dark:bg-gray-800'
         } pb-52 lg:pb-16 image-viewer-scroll cursor-grab ${
-          isPanning ? 'cursor-grabbing select-none' : ''
+          zoom.isPanning ? 'cursor-grabbing select-none' : ''
         }`}
         id="image-container"
         style={{
@@ -673,8 +373,8 @@ export default function ImageViewer({
       >
         <div
           style={{
-            width: `${zoomLevel * 100}%`,
-            ...(zoomLevel <= 1 ? { margin: '0 auto' } : {}),
+            width: `${zoom.zoomLevel * 100}%`,
+            ...(zoom.zoomLevel <= 1 ? { margin: '0 auto' } : {}),
           }}
         >
           {isLoading && !imageError && (
@@ -717,7 +417,7 @@ export default function ImageViewer({
                   // Calculate zoom to fit entire page in viewport (only on first load)
                   if (!initialZoomSetRef.current) {
                     // Set initial zoom: 100% on mobile, 60% on desktop
-                    setZoomLevel(isDesktop ? 0.6 : 1);
+                    zoom.setZoom(isDesktop ? 0.6 : 1);
                     initialZoomSetRef.current = true;
                     // Scroll down slightly from the top on desktop (simulate one scroll wheel click)
                     if (container && isDesktop) {
@@ -772,8 +472,8 @@ export default function ImageViewer({
           {/* Zoom Controls */}
           <div className="flex flex-wrap items-center justify-center gap-2 lg:gap-1 order-1 lg:order-2">
             <button
-              onClick={zoomOut}
-              disabled={zoomLevel <= MIN_ZOOM}
+              onClick={zoom.zoomOut}
+              disabled={zoom.zoomLevel <= MIN_ZOOM}
               className="px-3 py-1 lg:px-2 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
               title="Zoom out"
             >
@@ -784,27 +484,24 @@ export default function ImageViewer({
               min={MIN_ZOOM}
               max={MAX_ZOOM}
               step={ZOOM_STEP}
-              value={zoomLevel}
-              onChange={(e) => {
-                manualZoomRef.current = true;
-                setZoomLevel(parseFloat(e.target.value));
-              }}
+              value={zoom.zoomLevel}
+              onChange={(e) => zoom.setZoomFromSlider(parseFloat(e.target.value))}
               className="w-24 lg:w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
               title="Zoom level"
             />
             <button
-              onClick={zoomIn}
-              disabled={zoomLevel >= MAX_ZOOM}
+              onClick={zoom.zoomIn}
+              disabled={zoom.zoomLevel >= MAX_ZOOM}
               className="px-3 py-1 lg:px-2 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg font-bold"
               title="Zoom in"
             >
               +
             </button>
             <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-center">
-              {Math.round(zoomLevel * 100)}%
+              {Math.round(zoom.zoomLevel * 100)}%
             </span>
             <button
-              onClick={resetZoom}
+              onClick={zoom.resetZoom}
               className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
               title="Reset zoom"
             >
@@ -837,7 +534,7 @@ export default function ImageViewer({
               </svg>
             </button>
             <button
-              onClick={() => setIsPrintDialogOpen(true)}
+              onClick={() => setDialog('print')}
               className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
               title="Print pages"
             >
@@ -847,7 +544,7 @@ export default function ImageViewer({
             </button>
             {isAdmin && isRuntimeBook(bookId) && (
               <button
-                onClick={() => setIsAddTocOpen(true)}
+                onClick={() => setDialog('addToc')}
                 className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                 title="Add this page to the table of contents"
               >
@@ -858,7 +555,7 @@ export default function ImageViewer({
             )}
             {isAdmin && (
               <button
-                onClick={() => setIsFindVideosOpen(true)}
+                onClick={() => setDialog('findVideos')}
                 className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                 title="Find videos for this page"
               >
@@ -891,78 +588,17 @@ export default function ImageViewer({
                 </svg>
               </button>
             )}
-            {/* Video submission is open to everyone (the form signs the
-                user in when needed); list actions stay signed-in only */}
-            <div className="relative" ref={addMenuRef}>
-                <button
-                  onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                  title="Add menu"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-
-                {isAddMenuOpen && (
-                  <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[160px]">
-                    <button
-                      onClick={() => {
-                        setIsRecorderOpen(true);
-                        setIsAddMenuOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="12" cy="12" r="9" strokeWidth={2} />
-                        <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
-                      </svg>
-                      Record a video
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSubmitFormOpen(true);
-                        setIsAddMenuOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Add a video
-                    </button>
-                    {user && (
-                    <button
-                      onClick={() => {
-                        setIsAddToListModalOpen(true);
-                        setIsAddMenuOpen(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      Add to list
-                    </button>
-                    )}
-                  </div>
-                )}
-              </div>
+            <ViewerAddMenu
+              signedIn={!!user}
+              onRecord={() => setIsRecorderOpen(true)}
+              onAddVideo={() => setDialog('submitVideo')}
+              onAddToList={() => setDialog('addToList')}
+            />
 
             {/* Page indicator - desktop only, inline with controls */}
             <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-400 ml-2">
               Page{' '}
-              <input
-                type="text"
-                value={formatDisplayPageNumber(currentPage, pageOffset)}
-                onChange={(e) => {
-                  const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
-                  if (parsed !== null) {
-                    goToPage(parsed);
-                  }
-                }}
-                className="w-14 px-1 py-0.5 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800 text-sm"
-              />
+              {pageInput("w-14 px-1 py-0.5 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800 text-sm")}
               {' '}/ {totalPages}
             </span>
           </div>
@@ -979,17 +615,7 @@ export default function ImageViewer({
 
             <span className="text-sm lg:hidden">
               Page{' '}
-              <input
-                type="text"
-                value={formatDisplayPageNumber(currentPage, pageOffset)}
-                onChange={(e) => {
-                  const parsed = parseDisplayPageNumber(e.target.value, pageOffset);
-                  if (parsed !== null) {
-                    goToPage(parsed);
-                  }
-                }}
-                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800"
-              />
+              {pageInput("w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-800")}
               {' '}of {totalPages}
             </span>
 
@@ -1011,8 +637,8 @@ export default function ImageViewer({
 
       {/* Print Dialog */}
       <PrintDialog
-        isOpen={isPrintDialogOpen}
-        onClose={() => setIsPrintDialogOpen(false)}
+        isOpen={dialog === 'print'}
+        onClose={closeDialog}
         bookId={bookId}
         currentPage={currentPage}
         totalPages={totalPages}
@@ -1034,44 +660,33 @@ export default function ImageViewer({
         onClose={() => setIsVideosOpen(false)}
         videos={videos}
         initialVideoId={autoplayVideoId}
-        onDeletePrivate={async myVideoId => {
-          try {
-            const res = await fetch('/api/my-videos', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: myVideoId }),
-            });
-            if (res.ok) refreshVideos();
-          } catch (error) {
-            console.error('Failed to delete recording:', error);
-          }
-        }}
+        onDeletePrivate={deletePrivateVideo}
       />
 
       {/* Video Submission Form */}
-      {isSubmitFormOpen && (
+      {dialog === 'submitVideo' && (
         <VideoSubmissionForm
           bookId={bookId}
           currentPage={currentPage}
-          onClose={() => setIsSubmitFormOpen(false)}
+          onClose={closeDialog}
           onSuccess={refreshVideos}
         />
       )}
 
       {/* Add to List Modal */}
       <AddToListModal
-        isOpen={isAddToListModalOpen}
-        onClose={() => setIsAddToListModalOpen(false)}
+        isOpen={dialog === 'addToList'}
+        onClose={closeDialog}
         bookId={bookId}
         pageNumber={currentPage}
       />
 
-      {isAddTocOpen && (
+      {dialog === 'addToc' && (
         <AddTocEntryModal
           bookId={bookId}
           page={currentPage}
           pageOffset={pageOffset}
-          onClose={() => setIsAddTocOpen(false)}
+          onClose={closeDialog}
         />
       )}
 
@@ -1084,16 +699,16 @@ export default function ImageViewer({
             formatDisplayPageNumber(currentPage, pageOffset)
           )}
           onClose={() => setIsRecorderOpen(false)}
-          onSubmitLink={() => setIsSubmitFormOpen(true)}
+          onSubmitLink={() => setDialog('submitVideo')}
         />
       )}
 
-      {isFindVideosOpen && (
+      {dialog === 'findVideos' && (
         <FindVideosModal
           bookId={bookId}
           page={currentPage}
           pageOffset={pageOffset}
-          onClose={() => setIsFindVideosOpen(false)}
+          onClose={closeDialog}
           onAttached={refreshVideos}
         />
       )}

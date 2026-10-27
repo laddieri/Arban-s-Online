@@ -1,5 +1,7 @@
--- Video Submissions Table
--- Run this SQL in your Supabase SQL Editor to set up the database
+-- Original base schema (video submissions + admins), the starting point
+-- the numbered migrations in migrations/ build on. For a NEW project, run
+-- migrations/000_fresh_project_setup.sql instead: it is the complete current
+-- schema, and CI checks it matches this file + migrations 001..N.
 
 CREATE TABLE IF NOT EXISTS video_submissions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

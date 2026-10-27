@@ -99,6 +99,16 @@ export function isValidBookId(id: string): boolean {
   return books.some(b => b.id === id);
 }
 
+/**
+ * The full catalog: compiled-in books first, then runtime (admin-uploaded)
+ * books, skipping any whose id would shadow a compiled-in one. Shared by the
+ * server (lib/books/server.ts) and browser (lib/books/registry.ts) registries.
+ */
+export function withRuntimeBooks(runtime: Book[]): Book[] {
+  const staticIds = new Set(books.map(b => b.id));
+  return [...books, ...runtime.filter(b => b && !staticIds.has(b.id))];
+}
+
 /** Base URL for a book's images (bucket root + optional book prefix) */
 export function bookImageBaseUrl(book: Book): string {
   return book.imagePrefix
