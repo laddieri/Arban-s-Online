@@ -26,8 +26,9 @@ export async function GET(
     return NextResponse.json({ error: 'Unknown book' }, { status: 404 });
   }
 
-  // Validate page parameter (image file number, offset already applied)
-  if (!/^\d{1,3}$/.test(page)) {
+  // Validate page parameter (image file number, offset already applied;
+  // up to 4 digits since runtime books allow MAX_TOTAL_PAGES = 2000 images)
+  if (!/^\d{1,4}$/.test(page)) {
     return NextResponse.json(
       { error: 'Invalid page number' },
       { status: 400 }

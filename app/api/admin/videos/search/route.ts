@@ -10,6 +10,17 @@ import { getMinPage } from '@/utils/pageFormat';
 // be overridden with q. Requires the YOUTUBE_API_KEY env var (see
 // ADMIN_BOOKS.md). Each call costs 100 of the key's 10,000 free daily units.
 
+// The subset of a YouTube search.list result item this route reads
+interface YouTubeSearchItem {
+  id?: { videoId?: string };
+  snippet?: {
+    title?: string;
+    channelTitle?: string;
+    publishedAt?: string;
+    thumbnails?: { medium?: { url?: string } };
+  };
+}
+
 // YouTube snippet fields arrive HTML-escaped
 function decodeEntities(s: string): string {
   return s
@@ -67,10 +78,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: reason }, { status: 502 });
     }
 
-    const results = (data.items ?? [])
-      .filter((item: any) => item?.id?.videoId)
-      .map((item: any) => ({
-        videoId: item.id.videoId,
+    const results = ((data.items ?? []) as YouTubeSearchItem[])
+      .filter(item => item?.id?.videoId)
+      .map(item => ({
+        videoId: item.id!.videoId!,
         title: decodeEntities(item.snippet?.title ?? ''),
         channel: decodeEntities(item.snippet?.channelTitle ?? ''),
         thumbnail: item.snippet?.thumbnails?.medium?.url ?? null,

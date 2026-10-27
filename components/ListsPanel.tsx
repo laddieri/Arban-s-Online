@@ -56,7 +56,6 @@ export default function ListsPanel({
     if (isOpen) {
       fetchLists();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user]);
 
   // Fetch items when a list is selected

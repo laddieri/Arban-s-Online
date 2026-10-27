@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import Link from 'next/link';
+import { errorMessage } from '@/utils/errors';
 
 interface UserMenuProps {
   onOpenLists?: () => void;
@@ -107,8 +108,8 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
       alert('Check your email for the login link!');
       setEmail('');
       setIsSignInOpen(false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setIsSigningIn(false);
     }
@@ -128,8 +129,8 @@ export default function UserMenu({ onOpenLists }: UserMenuProps) {
       });
 
       if (error) throw error;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     }
   };
 
