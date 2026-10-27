@@ -358,10 +358,7 @@ function HomeContent() {
         onClose={() => setIsListsPanelOpen(false)}
         onPageSelect={handlePageChange}
         onStartPractice={startPractice}
-        pageOffset={appConfig.pageOffset}
-        baseUrl={appConfig.imageBaseUrl}
         imageFormat={appConfig.imageFormat}
-        totalPages={appConfig.totalPages}
         useImageProxy={appConfig.useImageProxy}
       />
     </div>
