@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/supabase/api';
 import { getBookServer } from '@/lib/books/server';
 import { buildVideoSearchQuery } from '@/utils/videoQuery';
-import { getMinPage } from '@/utils/pageFormat';
+import { isPageInBook, parsePageParam } from '@/utils/pageFormat';
 
 // GET /api/admin/videos/search?book=&page=[&q=]
 // Searches YouTube (Data API v3) for performance videos of the given page's
@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
   if (!book) {
     return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
   }
-  const page = parseInt(params.get('page') ?? '', 10);
-  if (isNaN(page) || page < getMinPage(book.pageOffset) || page > book.totalPages) {
+  const page = parsePageParam(params.get('page'));
+  if (!isPageInBook(page, book)) {
     return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
   }
 

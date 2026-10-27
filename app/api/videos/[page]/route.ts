@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { DEFAULT_BOOK_ID } from '@/config/books';
 import { isValidBookIdServer } from '@/lib/books/server';
+import { parsePageParam } from '@/utils/pageFormat';
 
 export async function GET(
   request: NextRequest,
@@ -17,9 +18,9 @@ export async function GET(
     }
 
     const { page } = await params;
-    const pageNumber = parseInt(page, 10);
+    const pageNumber = parsePageParam(page);
 
-    if (isNaN(pageNumber)) {
+    if (pageNumber === null) {
       return NextResponse.json(
         { error: 'Invalid page number' },
         { status: 400 }

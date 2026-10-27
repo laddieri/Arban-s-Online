@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   // ownership: the join only matches the caller's own list)
   const { data: existing, error: fetchError } = await supabase
     .from('user_list_items')
-    .select('id, user_lists!inner(user_id)')
+    .select('id, list_id, page_number, book_id, user_lists!inner(user_id)')
     .eq('list_id', list_id)
     .eq('user_lists.user_id', user.id);
 
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const existingIds = new Set((existing ?? []).map(item => item.id));
   const providedIds = new Set(item_ids);
   if (
+    item_ids.length !== existingIds.size ||
     existingIds.size !== providedIds.size ||
     [...existingIds].some(id => !providedIds.has(id))
   ) {
@@ -54,17 +55,29 @@ export async function POST(request: Request) {
     );
   }
 
-  const updates = item_ids.map((id: string, index: number) =>
-    supabase
-      .from('user_list_items')
-      .update({ position: index + 1, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('list_id', list_id)
-  );
-  const results = await Promise.all(updates);
-  const failed = results.find(r => r.error);
-  if (failed) {
-    console.error('Error reordering items:', failed.error);
+  // One upsert statement rewrites every position atomically (a failure
+  // can't leave the list half-reordered). Rows always conflict on id, so
+  // this only ever updates (barring an item deleted mid-request, which
+  // would be re-created); the NOT NULL columns ride along because
+  // PostgREST builds the statement as an INSERT, and are unchanged.
+  const byId = new Map((existing ?? []).map(item => [item.id, item]));
+  const now = new Date().toISOString();
+  const rows = item_ids.map((id: string, index: number) => {
+    const item = byId.get(id)!;
+    return {
+      id,
+      list_id: item.list_id,
+      page_number: item.page_number,
+      book_id: item.book_id,
+      position: index + 1,
+      updated_at: now,
+    };
+  });
+  const { error: upsertError } = await supabase
+    .from('user_list_items')
+    .upsert(rows, { onConflict: 'id' });
+  if (upsertError) {
+    console.error('Error reordering items:', upsertError);
     return NextResponse.json({ error: 'Failed to reorder items' }, { status: 500 });
   }
 

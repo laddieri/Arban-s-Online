@@ -5,6 +5,8 @@ import {
   formatDisplayPageNumber,
   parseDisplayPageNumber,
   getMinPage,
+  parsePageParam,
+  isPageInBook,
 } from '../pageFormat';
 
 describe('toRomanNumeral', () => {
@@ -93,5 +95,40 @@ describe('getMinPage', () => {
     expect(getMinPage(7)).toBe(-7);
     // -0 === 0, which is all the comparison call sites care about
     expect(getMinPage(0) === 0).toBe(true);
+  });
+});
+
+describe('parsePageParam', () => {
+  it('parses integers, including negative preface pages and zero', () => {
+    expect(parsePageParam('12')).toBe(12);
+    expect(parsePageParam('0')).toBe(0);
+    expect(parsePageParam('-7')).toBe(-7);
+  });
+
+  it('rejects junk that parseInt would accept', () => {
+    expect(parsePageParam('12abc')).toBeNull();
+    expect(parsePageParam('1.5')).toBeNull();
+    expect(parsePageParam(' 12')).toBeNull();
+    expect(parsePageParam('')).toBeNull();
+    expect(parsePageParam(null)).toBeNull();
+    expect(parsePageParam(undefined)).toBeNull();
+  });
+});
+
+describe('isPageInBook', () => {
+  const book = { pageOffset: 7, totalPages: 350 };
+
+  it('accepts the full range, preface and page 0 included', () => {
+    expect(isPageInBook(-7, book)).toBe(true);
+    expect(isPageInBook(0, book)).toBe(true);
+    expect(isPageInBook(350, book)).toBe(true);
+  });
+
+  it('rejects out-of-range, fractional, and non-number pages', () => {
+    expect(isPageInBook(-8, book)).toBe(false);
+    expect(isPageInBook(351, book)).toBe(false);
+    expect(isPageInBook(1.5, book)).toBe(false);
+    expect(isPageInBook('12', book)).toBe(false);
+    expect(isPageInBook(undefined, book)).toBe(false);
   });
 });

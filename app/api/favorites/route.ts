@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/api';
 import { DEFAULT_BOOK_ID } from '@/config/books';
-import { isValidBookIdServer } from '@/lib/books/server';
+import { getBookServer, isValidBookIdServer } from '@/lib/books/server';
+import { isPageInBook } from '@/utils/pageFormat';
 
 // GET - List all favorites for the current user
 export async function GET() {
@@ -45,17 +46,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { page_number } = body;
 
-    // Validation
-    if (!page_number || typeof page_number !== 'number') {
+    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
+    const book = typeof bookId === 'string' ? await getBookServer(bookId) : null;
+    if (!book) {
+      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
+    }
+
+    // Page 0 is a real page, so no falsy check
+    if (!isPageInBook(page_number, book)) {
       return NextResponse.json(
         { error: 'Invalid page number' },
         { status: 400 }
       );
-    }
-
-    const bookId = body.book_id ?? DEFAULT_BOOK_ID;
-    if (typeof bookId !== 'string' || !(await isValidBookIdServer(bookId))) {
-      return NextResponse.json({ error: 'Unknown book' }, { status: 400 });
     }
 
     // Insert favorite (will fail if duplicate due to unique constraint)
@@ -107,8 +109,8 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json();
     const { page_number } = body;
 
-    // Validation
-    if (!page_number || typeof page_number !== 'number') {
+    // Validation (page 0 is a real page, so no falsy check)
+    if (typeof page_number !== 'number' || !Number.isInteger(page_number)) {
       return NextResponse.json(
         { error: 'Invalid page number' },
         { status: 400 }
