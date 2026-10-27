@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { books, getBook, isValidBookId } from '@/config/books';
+import { books, getBook, isValidBookId, withRuntimeBooks, Book } from '@/config/books';
 import { searchToc } from '../tocSearch';
 import { getMinPage } from '../pageFormat';
 
@@ -79,5 +79,20 @@ describe('Charlier book', () => {
   it('offers a page jump within its 72-page range only', () => {
     expect(searchToc('72', charlier)[0]).toMatchObject({ isPageJump: true, page: 72 });
     expect(searchToc('73', charlier).find(r => r.isPageJump)).toBeUndefined();
+  });
+});
+
+describe('withRuntimeBooks', () => {
+  const runtime = (id: string): Book => ({ ...books[0], id, title: `Runtime ${id}` });
+
+  it('appends runtime books after the compiled-in ones', () => {
+    const merged = withRuntimeBooks([runtime('etudes')]);
+    expect(merged.map(b => b.id)).toEqual([...books.map(b => b.id), 'etudes']);
+  });
+
+  it('never lets a runtime book shadow a compiled-in id', () => {
+    const merged = withRuntimeBooks([runtime(books[0].id)]);
+    expect(merged).toHaveLength(books.length);
+    expect(merged[0]).toBe(books[0]);
   });
 });

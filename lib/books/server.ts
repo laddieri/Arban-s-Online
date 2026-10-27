@@ -1,4 +1,4 @@
-import { books as staticBooks, Book } from '@/config/books';
+import { books as staticBooks, Book, withRuntimeBooks } from '@/config/books';
 import { isSupabaseConfigured } from '@/lib/supabase/api';
 import { createClient } from '@/lib/supabase/server';
 import type { Section } from '@/config/tocSections';
@@ -84,10 +84,7 @@ export async function listBooksServer(): Promise<Book[]> {
         .select('*')
         .order('created_at', { ascending: true });
       if (!error && data) {
-        const staticIds = new Set(staticBooks.map(b => b.id));
-        merged = merged.concat(
-          (data as BookRow[]).filter(r => !staticIds.has(r.id)).map(rowToBook)
-        );
+        merged = withRuntimeBooks((data as BookRow[]).map(rowToBook));
       } else if (error) {
         // Surface why uploaded books are absent (visible in Vercel logs);
         // the compiled-in books still serve below
