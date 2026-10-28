@@ -11,11 +11,13 @@ import AddTocEntryModal from './AddTocEntryModal';
 import FindVideosModal from './FindVideosModal';
 import RecorderOverlay from './RecorderOverlay';
 import ViewerAddMenu from './ViewerAddMenu';
+import PageSheet from './PageSheet';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useBooks } from '@/hooks/useBooks';
 import { useExerciseVideos } from '@/hooks/useExerciseVideos';
 import { useZoomPan, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '@/hooks/useZoomPan';
 import { useFullscreenFit } from '@/hooks/useFullscreenFit';
+import type { ContentBounds } from '@/utils/contentBounds';
 import { useEdgeHover } from '@/hooks/useEdgeHover';
 import { isRuntimeBook, getBook } from '@/lib/books/registry';
 import { buildSuggestedVideoTitle } from '@/utils/videoQuery';
@@ -46,6 +48,7 @@ interface ImageViewerProps {
 type ViewerDialog = 'print' | 'submitVideo' | 'addToList' | 'addToc' | 'findVideos';
 
 const TWO_PAGE_KEY = 'arbans_two_page';
+const EVEN_MARGINS_KEY = 'arbans_even_margins';
 
 // Image files are numbered with at least three digits (page-001.jpg)
 const formatPageNumber = (num: number) => num.toString().padStart(3, '0');
@@ -71,6 +74,11 @@ export default function ImageViewer({
   // open book. Available at every screen size (a phone in landscape on a
   // music stand is a real use case); persisted in localStorage.
   const [twoPageView, setTwoPageView] = useState(false);
+  // Even margins: crop each scan's uneven paper border and show the music on
+  // a sheet with uniform margins (see PageSheet). On unless turned off.
+  const [evenMargins, setEvenMargins] = useState(true);
+  // Which shown page images have their final (measured) layout, by URL
+  const [settledPages, setSettledPages] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<ViewerDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
@@ -165,6 +173,7 @@ export default function ImageViewer({
   useEffect(() => {
     try {
       setTwoPageView(localStorage.getItem(TWO_PAGE_KEY) === '1');
+      setEvenMargins(localStorage.getItem(EVEN_MARGINS_KEY) !== '0');
     } catch {
       // localStorage unavailable; default to single-page view
     }
@@ -183,6 +192,16 @@ export default function ImageViewer({
     }
     try {
       localStorage.setItem(TWO_PAGE_KEY, next ? '1' : '0');
+    } catch {
+      // localStorage unavailable; the toggle still works for this session
+    }
+  };
+
+  const toggleEvenMargins = () => {
+    const next = !evenMargins;
+    setEvenMargins(next);
+    try {
+      localStorage.setItem(EVEN_MARGINS_KEY, next ? '1' : '0');
     } catch {
       // localStorage unavailable; the toggle still works for this session
     }
@@ -267,7 +286,33 @@ export default function ImageViewer({
     return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
   };
 
+  const getProxyUrl = (pageNum: number) =>
+    `/api/image/${formatPageNumber(pageNum + pageOffset)}?book=${bookId}`;
+
   const currentImageUrl = getImageUrl(currentPage);
+  const shownImageUrls = secondPage !== null
+    ? [currentImageUrl, getImageUrl(secondPage)]
+    : [currentImageUrl];
+  const sheetsSettled = shownImageUrls.every(url => settledPages[url]);
+  const trackSettled = (url: string) => (settled: boolean) =>
+    setSettledPages(prev => (prev[url] === settled ? prev : { ...prev, [url]: settled }));
+
+  // Content box of the shown sheets, as fractions of the zoomed content
+  // (null when no page is showing a sheet)
+  const getSheetContentBox = (): ContentBounds | null => {
+    const content = containerRef.current?.firstElementChild;
+    const crops = containerRef.current?.querySelectorAll('[data-sheet-crop]');
+    if (!content || !crops || crops.length === 0) return null;
+    const outer = content.getBoundingClientRect();
+    if (!outer.width || !outer.height) return null;
+    const rects = Array.from(crops, c => c.getBoundingClientRect());
+    return {
+      left: (Math.min(...rects.map(r => r.left)) - outer.left) / outer.width,
+      right: (Math.max(...rects.map(r => r.right)) - outer.left) / outer.width,
+      top: (Math.min(...rects.map(r => r.top)) - outer.top) / outer.height,
+      bottom: (Math.max(...rects.map(r => r.bottom)) - outer.top) / outer.height,
+    };
+  };
 
   // Preload adjacent pages for smoother navigation (the next/previous
   // spread in two-page view)
@@ -286,13 +331,14 @@ export default function ImageViewer({
 
   useFullscreenFit({
     isFullscreen,
-    isReady: !isLoading && !imageError,
+    isReady: !isLoading && !imageError && sheetsSettled,
     currentPage,
     secondPage,
     bookId,
     pageOffset,
     imageUrl: getImageUrl,
-    proxyUrl: pageNum => `/api/image/${formatPageNumber(pageNum + pageOffset)}?book=${bookId}`,
+    proxyUrl: getProxyUrl,
+    getSheetContentBox: evenMargins ? getSheetContentBox : undefined,
     containerRef,
     imageRef,
     zoom,
@@ -403,14 +449,17 @@ export default function ImageViewer({
             </div>
           ) : (
             <div className={secondPage !== null ? 'flex items-start' : undefined}>
-              <img
-                ref={imageRef}
+              <PageSheet
+                imgRef={imageRef}
                 src={currentImageUrl}
-                draggable={false}
+                proxySrc={getProxyUrl(currentPage)}
                 alt={`Page ${formatDisplayPageNumber(currentPage, pageOffset)} of ${totalPages}`}
+                evenMargins={evenMargins}
+                width={secondPage !== null ? '50%' : '100%'}
                 className={`h-auto transition-all duration-100 ${
                   isLoading ? 'opacity-0' : 'opacity-100'
                 }`}
+                onSettledChange={trackSettled(currentImageUrl)}
                 onLoad={() => {
                   setIsLoading(false);
                   const container = containerRef.current;
@@ -435,21 +484,16 @@ export default function ImageViewer({
                   setImageError(true);
                   setIsLoading(false);
                 }}
-                style={{
-                  width: secondPage !== null ? '50%' : '100%',
-                  maxWidth: 'none',
-                }}
               />
               {secondPage !== null && (
-                <img
+                <PageSheet
                   src={getImageUrl(secondPage)}
-                  draggable={false}
+                  proxySrc={getProxyUrl(secondPage)}
                   alt={`Page ${formatDisplayPageNumber(secondPage, pageOffset)} of ${totalPages}`}
+                  evenMargins={evenMargins}
+                  width="50%"
                   className="h-auto transition-all duration-100"
-                  style={{
-                    width: '50%',
-                    maxWidth: 'none',
-                  }}
+                  onSettledChange={trackSettled(getImageUrl(secondPage))}
                 />
               )}
             </div>
@@ -531,6 +575,18 @@ export default function ImageViewer({
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </button>
+            <button
+              onClick={toggleEvenMargins}
+              className={`px-2 py-1 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition ${
+                evenMargins ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+              title={evenMargins ? 'Even margins on: show the original scan' : 'Even margins: trim scan borders to consistent margins'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <rect x="4" y="3" width="16" height="18" rx="1" strokeWidth={2} />
+                <path strokeLinecap="round" strokeWidth={2} d="M8 8h8M8 12h8M8 16h8" />
               </svg>
             </button>
             <button

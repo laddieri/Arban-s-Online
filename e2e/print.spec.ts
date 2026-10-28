@@ -1,6 +1,7 @@
 import { test, expect, Page, Frame, BrowserContext } from '@playwright/test';
 
-// Print output geometry: zero margins, Fill/Fit scaling, one sheet per page,
+// Print output geometry: even margins (default), zero-margin Fill/Fit scaling,
+// one sheet per page,
 // preface-page support, and the failed-image warning.
 
 async function openDialogWithRange(page: Page, from: string, to: string) {
@@ -12,6 +13,8 @@ async function openDialogWithRange(page: Page, from: string, to: string) {
 }
 
 async function getPrintFrame(page: Page): Promise<Frame> {
+  // The dialog closes only once the layout is final and print() was called
+  await page.getByRole('heading', { name: 'Print Pages' }).waitFor({ state: 'hidden', timeout: 20000 });
   await page.waitForFunction(() => {
     const frames = document.querySelectorAll('iframe[aria-hidden="true"]');
     const f = frames[frames.length - 1] as HTMLIFrameElement | undefined;
@@ -95,8 +98,54 @@ test.beforeEach(async ({ page, context }) => {
   await page.goto('/?page=50');
 });
 
+test('Even margins mode scales the music into uniform margins', async ({ page, context }) => {
+  await openDialogWithRange(page, '50', '51');
+  await expect(page.getByRole('radio', { name: /Even margins/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Print', exact: true }).click();
+  const frame = await getPrintFrame(page);
+  // The stand-in scans' music (staff lines) spans x 80..720 of 800 and
+  // y 400..700 of 1035 - far inside the scan's own paper border
+  const crops = await frame.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLElement>('.crop')).map(c => {
+      const r = c.getBoundingClientRect();
+      const IN = 96;
+      return {
+        left: +(r.left / IN).toFixed(2),
+        right: +(r.right / IN).toFixed(2),
+        top: +(r.top / IN).toFixed(2),
+        pageTop: +(c.parentElement!.getBoundingClientRect().top / IN).toFixed(2),
+      };
+    })
+  );
+  expect(crops).toHaveLength(2);
+  for (const c of crops) {
+    expect(c.left).toBe(0.5);
+    expect(c.right).toBe(8);
+    // Partly-empty page: starts at the top margin
+    expect(c.top - c.pageTop).toBe(0.5);
+  }
+
+  const html = await frame.evaluate(() => document.documentElement.outerHTML);
+  const pdf = await pdfStats(context, html);
+  expect(pdf.sizes).toEqual(['8.50x11.00']);
+  expect(pdf.sheets).toBe(2);
+});
+
+test('Even margins mode honours the margin setting', async ({ page }) => {
+  await openDialogWithRange(page, '50', '50');
+  await page.locator('#print-margin').selectOption('0.75');
+  await page.getByRole('button', { name: 'Print', exact: true }).click();
+  const frame = await getPrintFrame(page);
+  const box = await frame.evaluate(() => {
+    const r = document.querySelector('.crop')!.getBoundingClientRect();
+    return { left: +(r.left / 96).toFixed(2), right: +(r.right / 96).toFixed(2) };
+  });
+  expect(box).toEqual({ left: 0.75, right: 7.75 });
+});
+
 test('Fill mode prints edge-to-edge with zero white space', async ({ page, context }) => {
   await openDialogWithRange(page, '50', '51');
+  await page.getByRole('radio', { name: /Fill page/ }).check();
   await page.getByRole('button', { name: 'Print', exact: true }).click();
   const m = await measure(await getPrintFrame(page));
 
