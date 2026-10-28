@@ -8,6 +8,8 @@ export interface ContentBounds {
   top: number;
   right: number;
   bottom: number;
+  /** Luminance (0..255) of the scan's paper tone, when measured */
+  paperLuminance?: number;
 }
 
 // Ink must be this much darker than the page's own paper tone. Old scans
@@ -136,6 +138,7 @@ export function findContentBounds(
     top: Math.max(0, top / height - PADDING),
     right: Math.min(1, (right + 1) / width + PADDING),
     bottom: Math.min(1, (bottom + 1) / height + PADDING),
+    paperLuminance: median,
   };
   if (
     bounds.right - bounds.left < MIN_BOX_FRACTION ||

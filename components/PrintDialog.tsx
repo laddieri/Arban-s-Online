@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
+import { getPageContentBounds } from '@/lib/pageBounds';
+import { computePrintPlacement } from '@/utils/printLayout';
+import type { ContentBounds } from '@/utils/contentBounds';
 
 interface PrintDialogProps {
   isOpen: boolean;
@@ -36,12 +39,21 @@ export default function PrintDialog({
   const [selectedPages, setSelectedPages] = useState<number[]>([currentPage]);
   const [isPrinting, setIsPrinting] = useState(false);
   const [paperSize, setPaperSize] = useState<'letter' | 'legal' | 'tabloid' | 'a3'>('letter');
+  // 'auto' finds the printed music on each scan and scales it into uniform
+  // margins, ignoring the scan's own uneven paper border;
   // 'fill' covers the whole sheet (no white space, crops scan edges as needed);
   // 'fit' shows the whole scan (may leave white bars if aspect ratios differ)
-  const [fitMode, setFitMode] = useState<'fill' | 'fit'>('fill');
+  const [fitMode, setFitMode] = useState<'auto' | 'fill' | 'fit'>('auto');
+  const [printMargin, setPrintMargin] = useState(0.5); // inches, 'auto' only
   const [printZoom, setPrintZoom] = useState(100);
 
   const minPage = getMinPage(pageOffset);
+
+  const marginOptions = [
+    { value: 0.25, label: 'Narrow (¼ in)' },
+    { value: 0.5, label: 'Normal (½ in)' },
+    { value: 0.75, label: 'Wide (¾ in)' },
+  ];
 
   const paperSizes: Record<string, { label: string; width: string; height: string; description: string }> = {
     letter: { label: 'Letter (Default)', width: '8.5in', height: '11in', description: 'Standard US letter paper' },
@@ -75,13 +87,13 @@ export default function PrintDialog({
 
   // Get image URL for a page (apply offset to convert display page number to image file number)
   // When useImageProxy is true, route through /api/image/[page] to avoid firewall blocks
+  const getProxyUrl = (pageNum: number) =>
+    `/api/image/${formatPageNumber(pageNum + pageOffset)}?book=${bookId}`;
   const getImageUrl = (pageNum: number) => {
-    const imagePageNum = pageNum + pageOffset;
-    const paddedNum = formatPageNumber(imagePageNum);
     if (useImageProxy) {
-      return `/api/image/${paddedNum}?book=${bookId}`;
+      return getProxyUrl(pageNum);
     }
-    return `${baseUrl}/page-${paddedNum}.${imageFormat}`;
+    return `${baseUrl}/page-${formatPageNumber(pageNum + pageOffset)}.${imageFormat}`;
   };
 
   // Get pages to print based on mode
@@ -115,19 +127,21 @@ export default function PrintDialog({
     });
   };
 
-  // Build the standalone print document. Zero margins everywhere: the @page
-  // margin is 0 and each .page box is the full sheet, so the only remaining
-  // border is whatever the printer hardware can't reach (unless borderless).
+  // Build the standalone print document. The @page margin is 0 and each
+  // .page box is the full sheet; in 'auto' mode the margins are drawn by
+  // placing each page's .crop window (see applyAutoMargins), otherwise the
+  // only border is whatever the printer hardware can't reach.
   const buildPrintHtml = (pages: number[]) => {
     const paper = paperSizes[paperSize];
     const imagesHtml = pages
-      .map(
-        (page) => `
+      .map((page) => {
+        const img = `<img src="${getImageUrl(page)}" alt="Page ${formatDisplayPageNumber(page, pageOffset)}" />`;
+        return `
         <div class="page">
-          <img src="${getImageUrl(page)}" alt="Page ${formatDisplayPageNumber(page, pageOffset)}" />
+          ${fitMode === 'auto' ? `<div class="crop">${img}</div>` : img}
         </div>
-      `
-      )
+      `;
+      })
       .join('');
 
     return `
@@ -171,7 +185,22 @@ export default function PrintDialog({
               page-break-after: auto;
             }
 
-            .page img {
+            .page {
+              position: relative;
+            }
+
+            .crop {
+              position: absolute;
+              overflow: hidden;
+            }
+
+            .crop img {
+              position: absolute;
+              display: block;
+              max-width: none;
+            }
+
+            .page > img {
               display: block;
               width: 100%;
               height: 100%;
@@ -217,6 +246,36 @@ export default function PrintDialog({
       });
     });
 
+  // Position each page's content window so the printed music sits inside
+  // uniform margins. Pages whose content couldn't be measured fit the whole
+  // scan inside the margins instead.
+  const applyAutoMargins = (doc: Document, bounds: (ContentBounds | null)[]) => {
+    const paper = paperSizes[paperSize];
+    const paperW = parseFloat(paper.width);
+    const paperH = parseFloat(paper.height);
+    doc.querySelectorAll<HTMLElement>('.crop').forEach((crop, i) => {
+      const img = crop.querySelector('img');
+      if (!img || !img.naturalWidth || !img.naturalHeight) return;
+      const p = computePrintPlacement(
+        bounds[i] ?? null, img.naturalWidth, img.naturalHeight, paperW, paperH, printMargin
+      );
+      crop.style.left = `${p.cropLeft}in`;
+      crop.style.top = `${p.cropTop}in`;
+      crop.style.width = `${p.cropWidth}in`;
+      crop.style.height = `${p.cropHeight}in`;
+      img.style.left = `${p.imageLeft}in`;
+      img.style.top = `${p.imageTop}in`;
+      img.style.width = `${p.imageWidth}in`;
+      img.style.height = `${p.imageHeight}in`;
+      // Turn toned/yellowed scan paper white so it doesn't print as a
+      // tinted box inside the white margins
+      const paper = bounds[i]?.paperLuminance;
+      if (paper) {
+        img.style.filter = `grayscale(1) brightness(${Math.min((255 / paper) * 1.04, 1.8).toFixed(3)})`;
+      }
+    });
+  };
+
   // Handle print: render into a hidden same-origin iframe (no popup, so no
   // popup blockers), wait for images, then print the iframe document
   const handlePrint = async () => {
@@ -241,13 +300,25 @@ export default function PrintDialog({
       if (!doc || !win) {
         throw new Error('Could not create print frame');
       }
+      // Measure the music on each page while the print document loads
+      const boundsPromise =
+        fitMode === 'auto'
+          ? Promise.all(pages.map(page => getPageContentBounds(getImageUrl(page), getProxyUrl(page))))
+          : Promise.resolve([]);
+
       doc.open();
       doc.write(buildPrintHtml(pages));
       doc.close();
 
       // Give slow connections time proportional to the number of pages
       const timeoutMs = 10000 + pages.length * 500;
-      const failedCount = await waitForImages(Array.from(doc.images), timeoutMs);
+      const [failedCount, bounds] = await Promise.all([
+        waitForImages(Array.from(doc.images), timeoutMs),
+        boundsPromise,
+      ]);
+      if (fitMode === 'auto') {
+        applyAutoMargins(doc, bounds);
+      }
 
       if (failedCount > 0) {
         const proceed = window.confirm(
@@ -439,6 +510,20 @@ export default function PrintDialog({
                 <input
                   type="radio"
                   name="fitMode"
+                  value="auto"
+                  checked={fitMode === 'auto'}
+                  onChange={() => setFitMode('auto')}
+                  className="w-4 h-4 text-blue-600 mt-0.5"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Even margins</span> — finds the music on each
+                  page and enlarges it to fill the sheet inside consistent margins
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="fitMode"
                   value="fill"
                   checked={fitMode === 'fill'}
                   onChange={() => setFitMode('fill')}
@@ -466,7 +551,27 @@ export default function PrintDialog({
             </div>
           </div>
 
+          {/* Margin size (even-margins mode) */}
+          {fitMode === 'auto' && (
+            <div className="mt-4">
+              <label htmlFor="print-margin" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Margins
+              </label>
+              <select
+                id="print-margin"
+                value={printMargin}
+                onChange={(e) => setPrintMargin(parseFloat(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm cursor-pointer"
+              >
+                {marginOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Print zoom */}
+          {fitMode !== 'auto' && (
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Extra Zoom: {printZoom}%
@@ -490,12 +595,13 @@ export default function PrintDialog({
               </p>
             )}
           </div>
+          )}
 
           {/* Browser print dialog hint */}
           <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
             In your browser&apos;s print dialog, set Margins to <span className="font-medium">None</span> and
-            Scale to <span className="font-medium">100%</span> (not &quot;fit to page&quot;). Printing to the
-            very edge of the paper also requires a printer with borderless support.
+            Scale to <span className="font-medium">100%</span> (not &quot;fit to page&quot;).
+            {fitMode !== 'auto' && ' Printing to the very edge of the paper also requires a printer with borderless support.'}
           </p>
 
           {/* Summary */}
@@ -507,8 +613,11 @@ export default function PrintDialog({
               }
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Paper: {paperSizes[paperSize].label}, {fitMode === 'fill' ? 'fill page' : 'fit page'}
-              {printZoom > 100 && ` at ${printZoom}% zoom`}
+              Paper: {paperSizes[paperSize].label},{' '}
+              {fitMode === 'auto'
+                ? `even ${marginOptions.find(o => o.value === printMargin)?.label.toLowerCase()} margins`
+                : fitMode === 'fill' ? 'fill page' : 'fit page'}
+              {fitMode !== 'auto' && printZoom > 100 && ` at ${printZoom}% zoom`}
             </p>
           </div>
         </div>

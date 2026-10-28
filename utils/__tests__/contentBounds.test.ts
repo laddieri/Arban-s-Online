@@ -130,3 +130,17 @@ describe('combineSpreadBounds', () => {
     expect(combineSpreadBounds(box, null)).toBeNull();
   });
 });
+
+describe('findContentBounds paper tone', () => {
+  it('reports the paper luminance of a toned scan', () => {
+    const w = 100, h = 130;
+    const data = new Uint8ClampedArray(w * h * 4);
+    for (let p = 0; p < w * h; p++) {
+      const x = p % w, y = Math.floor(p / w);
+      const ink = x > 20 && x < 80 && y > 30 && y < 100 && y % 10 < 2;
+      data.set(ink ? [20, 20, 20, 255] : [245, 234, 208, 255], p * 4);
+    }
+    const lum = (0.299 * 245 + 0.587 * 234 + 0.114 * 208) | 0;
+    expect(findContentBounds(data, w, h)?.paperLuminance).toBe(lum);
+  });
+});
