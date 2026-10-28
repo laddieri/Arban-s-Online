@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test';
 
 // Smart fullscreen: entering fullscreen zooms past the page's white paper
 // margins so the printed music itself spans (almost) the screen width.
-// The generated e2e pages carry staff lines from x=81..719 of 800px
-// (~83% of the width once padded), so the fit lands around 115-120%,
-// clearly above both the 100% mobile and 60% desktop defaults.
+// With even margins on (the default) the music fills 7.5/8.5 of each sheet,
+// so the fit is ~111%; on the raw scan the generated pages' staff lines
+// (x=81..719 of 800px, ~83% once padded) fit at ~115-120%. Both are clearly
+// above the 100% mobile and 60% desktop defaults.
 
 const FIT_ZOOM = /^1[12][0-9]%$/;
 
@@ -19,13 +20,33 @@ test('fullscreen zooms to the music, exit restores the previous zoom', async ({ 
 
   await page.getByTitle('Enter fullscreen').click();
   await expect(page.getByText(FIT_ZOOM)).toBeVisible();
+  // The music's left edge sits just inside the screen edge
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector('#image-container')!.getBoundingClientRect();
+        const crop = document.querySelector('[data-sheet-crop]')!.getBoundingClientRect();
+        return Math.round(((crop.left - view.left) / view.width) * 100);
+      })
+    )
+    .toBe(1);
+
+  await page.getByTitle('Exit fullscreen').click();
+  await expect(page.getByText(initialZoom)).toBeVisible();
+});
+
+test('on the raw scan, fullscreen scrolls past the blank paper margin', async ({ page }) => {
+  await page.goto('/?page=11');
+  await page.getByTitle(/Even margins on/).click();
+  await expect(page.locator('img[alt^="Page 11"]')).toHaveAttribute('data-even-margins', 'off');
+  await page.getByTitle('Enter fullscreen').click();
+  await expect(page.getByText(FIT_ZOOM)).toBeVisible();
   // Scrolled down past the blank top margin to where the music starts
   await expect
     .poll(() => page.locator('#image-container').evaluate(el => el.scrollTop))
     .toBeGreaterThan(200);
-
   await page.getByTitle('Exit fullscreen').click();
-  await expect(page.getByText(initialZoom)).toBeVisible();
+  await page.getByTitle(/Even margins:/).click(); // restore the default
 });
 
 test('manual zoom while fullscreen turns off the auto-fit for page turns', async ({ page }) => {

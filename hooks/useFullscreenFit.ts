@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, RefObject } from 'react';
-import { combineSpreadBounds } from '@/utils/contentBounds';
+import { combineSpreadBounds, type ContentBounds } from '@/utils/contentBounds';
 import { getPageContentBounds } from '@/lib/pageBounds';
 import { MIN_ZOOM, MAX_ZOOM, useZoomPan } from './useZoomPan';
 
@@ -21,6 +21,9 @@ interface FullscreenFitOptions {
   containerRef: RefObject<HTMLDivElement>;
   imageRef: RefObject<HTMLImageElement>;
   zoom: ReturnType<typeof useZoomPan>;
+  /** With even margins on: the shown sheets' content box, as fractions of
+   *  the zoomed content's width and height (already laid out on screen) */
+  getSheetContentBox?: () => ContentBounds | null;
 }
 
 /**
@@ -45,6 +48,7 @@ export function useFullscreenFit({
   containerRef,
   imageRef,
   zoom,
+  getSheetContentBox,
 }: FullscreenFitOptions) {
   const preFullscreenZoomRef = useRef<number | null>(null);
 
@@ -64,6 +68,30 @@ export function useFullscreenFit({
     const img = imageRef.current;
     if (!img || !img.naturalWidth) return;
 
+    const EDGE = 0.01; // screen fraction left as breathing room per side
+
+    // Even margins: the sheets are already laid out, so fit their content
+    // box directly. Its fractions don't change with zoom (all sizes scale).
+    const sheetBox = getSheetContentBox?.();
+    const container = containerRef.current;
+    const content = container?.firstElementChild;
+    if (sheetBox && container && content) {
+      const viewWidth = container.clientWidth;
+      const fitZoom = Math.min(
+        Math.max((1 - 2 * EDGE) / (sheetBox.right - sheetBox.left), MIN_ZOOM),
+        MAX_ZOOM
+      );
+      const scale = fitZoom / zoom.getZoom();
+      const innerWidth = content.getBoundingClientRect().width * scale;
+      const innerHeight = content.getBoundingClientRect().height * scale;
+      const edgePx = EDGE * viewWidth;
+      zoom.setZoom(fitZoom, {
+        left: Math.max(0, sheetBox.left * innerWidth - edgePx),
+        top: Math.max(0, sheetBox.top * innerHeight - edgePx),
+      });
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       let box = await getPageContentBounds(imageUrl(currentPage), proxyUrl(currentPage));
@@ -76,7 +104,6 @@ export function useFullscreenFit({
       const container = containerRef.current;
       if (cancelled || !box || !container || zoom.isManual()) return;
 
-      const EDGE = 0.01; // screen fraction left as breathing room per side
       const viewWidth = container.clientWidth;
       const fitZoom = Math.min(
         Math.max((1 - 2 * EDGE) / (box.right - box.left), MIN_ZOOM),
@@ -98,5 +125,5 @@ export function useFullscreenFit({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFullscreen, isReady, currentPage, secondPage, bookId, pageOffset]);
+  }, [isFullscreen, isReady, currentPage, secondPage, bookId, pageOffset, !!getSheetContentBox]);
 }

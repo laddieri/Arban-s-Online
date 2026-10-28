@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatDisplayPageNumber, parseDisplayPageNumber, getMinPage } from '@/utils/pageFormat';
 import { getPageContentBounds } from '@/lib/pageBounds';
-import { computePrintPlacement } from '@/utils/printLayout';
+import { computePrintPlacement, paperWhiteningFilter } from '@/utils/printLayout';
 import type { ContentBounds } from '@/utils/contentBounds';
 
 interface PrintDialogProps {
@@ -271,7 +271,7 @@ export default function PrintDialog({
       // tinted box inside the white margins
       const paper = bounds[i]?.paperLuminance;
       if (paper) {
-        img.style.filter = `grayscale(1) brightness(${Math.min((255 / paper) * 1.04, 1.8).toFixed(3)})`;
+        img.style.filter = paperWhiteningFilter(paper);
       }
     });
   };

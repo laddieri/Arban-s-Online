@@ -72,3 +72,12 @@ export function computePrintPlacement(
     imageTop: -box.top * naturalHeight * scale,
   };
 }
+
+/**
+ * CSS filter that turns a scan's toned/yellowed paper white (and the page
+ * grayscale), so it doesn't show as a tinted box inside white margins.
+ */
+export function paperWhiteningFilter(paperLuminance: number): string {
+  const gain = Math.min((255 / paperLuminance) * 1.04, 1.8);
+  return `grayscale(1) brightness(${gain.toFixed(3)})`;
+}
